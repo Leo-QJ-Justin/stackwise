@@ -8,6 +8,13 @@
       "when": 1772874023782,
       "tag": "0000_giant_toad_men",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1772877616725,
+      "tag": "0001_lethal_captain_cross",
+      "breakpoints": true
     }
   ]
 }

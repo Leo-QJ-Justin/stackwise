@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { RefreshCw, Download, Settings } from "lucide-react";
 
 export function TopBar() {
@@ -15,7 +16,6 @@ export function TopBar() {
       const data = await res.json();
       if (res.ok) {
         setLastScanned(new Date().toLocaleTimeString());
-        alert(data.message ?? "Scan complete.");
       } else {
         alert(data.error ?? "Scan failed.");
       }
@@ -27,46 +27,42 @@ export function TopBar() {
   }
 
   return (
-    <div className="flex items-center justify-between border-b px-4 py-2">
+    <header className="flex items-center justify-between border-b border-border px-6 py-3">
       <div className="flex items-center gap-4">
-        <h1 className="font-mono text-lg font-semibold tracking-tight">
+        <h1 className="font-mono text-base font-bold tracking-tight text-primary">
           StackWise
         </h1>
         {lastScanned && (
-          <span className="text-xs text-muted-foreground">
-            Last scanned: {lastScanned}
+          <span className="font-mono text-[11px] text-muted-foreground">
+            scanned {lastScanned}
           </span>
         )}
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5">
         <Button
           variant="outline"
           size="sm"
-          className="cursor-pointer"
+          className="cursor-pointer gap-1.5"
           onClick={handleScan}
           disabled={scanning}
         >
-          <RefreshCw
-            className={scanning ? "animate-spin" : ""}
-          />
-          Scan Now
+          <RefreshCw className={`size-3.5 ${scanning ? "animate-spin" : ""}`} />
+          Scan
         </Button>
 
-        <Button
-          variant="ghost"
-          size="sm"
-          className="cursor-pointer"
-          render={<a href="/export" />}
+        <Link
+          href="/export"
+          className={buttonVariants({ variant: "ghost", size: "sm" })}
         >
-          <Download />
+          <Download className="size-3.5" />
           Export
-        </Button>
+        </Link>
 
-        <Button variant="ghost" size="icon" className="cursor-pointer">
-          <Settings />
+        <Button variant="ghost" size="icon-sm" className="cursor-pointer">
+          <Settings className="size-3.5" />
         </Button>
       </div>
-    </div>
+    </header>
   );
 }

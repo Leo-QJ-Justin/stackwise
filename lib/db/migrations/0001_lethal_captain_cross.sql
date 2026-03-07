@@ -1,0 +1,1 @@
+ALTER TABLE `tools_registry` ADD `replaces_tool_id` integer REFERENCES tools_registry(id);

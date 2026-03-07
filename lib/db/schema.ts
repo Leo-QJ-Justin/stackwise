@@ -18,6 +18,7 @@ export const toolsRegistry = sqliteTable("tools_registry", {
     .notNull()
     .default(sql`(CURRENT_TIMESTAMP)`),
   canonicalUrl: text("canonical_url"),
+  replacesToolId: integer("replaces_tool_id"),
 });
 
 export const stackItems = sqliteTable("stack_items", {
