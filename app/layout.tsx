@@ -14,10 +14,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body
-        style={{ fontFamily: "'IBM Plex Sans', sans-serif" }}
-        className="font-sans antialiased"
-      >
+      <body>
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
