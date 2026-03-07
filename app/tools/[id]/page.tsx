@@ -51,8 +51,10 @@ export default async function ToolDetailPage({
 
       <div className="flex items-center gap-3">
         <h1 className="font-mono text-2xl font-bold">{tool.name}</h1>
-        {tool.pluginType && (
-          <Badge variant="secondary">{tool.pluginType}</Badge>
+        {tool.provides && (
+          <Badge variant="secondary">
+            {JSON.parse(tool.provides).length} capabilities
+          </Badge>
         )}
         <Badge
           variant={

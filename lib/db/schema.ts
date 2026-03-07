@@ -5,7 +5,7 @@ export const toolsRegistry = sqliteTable("tools_registry", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   name: text("name").notNull(),
   category: text("category").notNull(),
-  pluginType: text("plugin_type"),
+  provides: text("provides"),
   description: text("description"),
   status: text("status").notNull().default("unclassified"),
   source: text("source").notNull().default("community"),
@@ -52,9 +52,15 @@ export const duplicatesLog = sqliteTable("duplicates_log", {
   verdict: text("verdict").notNull(),
   mappedToName: text("mapped_to_name"),
   reason: text("reason"),
+  reviewed: integer("reviewed").notNull().default(0),
   loggedAt: text("logged_at")
     .notNull()
     .default(sql`(CURRENT_TIMESTAMP)`),
+});
+
+export const settings = sqliteTable("settings", {
+  key: text("key").primaryKey(),
+  value: text("value"),
 });
 
 export const swapHistory = sqliteTable("swap_history", {

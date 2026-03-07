@@ -29,7 +29,7 @@ export async function POST() {
             await db.insert(toolsRegistry).values({
               name,
               category: "plugin",
-              pluginType: plugin.type ?? null,
+              provides: plugin.type ? JSON.stringify([plugin.type]) : null,
               description: plugin.description ?? null,
               status: "unclassified",
               source: "scan",

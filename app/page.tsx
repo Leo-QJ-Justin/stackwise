@@ -7,7 +7,7 @@ export default function Home() {
     <div className="flex h-screen flex-col bg-background text-foreground">
       <TopBar />
       <StackDashboard />
-      <NotificationBar count={0} />
+      <NotificationBar />
     </div>
   );
 }

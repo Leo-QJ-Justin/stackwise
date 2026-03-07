@@ -5,6 +5,9 @@ import path from "path";
 import { eq } from "drizzle-orm";
 import { db } from "./db";
 import { toolsRegistry } from "./db/schema";
+import { classifyAndStore } from "./classify";
+import { fetchReadmeForPlugin } from "./github";
+import { getSetting } from "./settings";
 
 const pluginsJsonPath = path.join(
   os.homedir(),
@@ -56,7 +59,7 @@ function ensureTool(
 
 // ── Plugins handler ────────────────────────────────────────────────
 
-function handlePluginsChange(filePath: string) {
+async function handlePluginsChange(filePath: string) {
   try {
     const raw = fs.readFileSync(filePath, "utf-8");
     const data = JSON.parse(raw);
@@ -70,11 +73,46 @@ function handlePluginsChange(filePath: string) {
 
     for (const key of pluginKeys) {
       const name = formatName(key);
-      ensureTool(name, {
-        status: "unclassified",
-        source: "community",
-        category: "Development",
-      });
+
+      // Check if already in registry
+      const existing = db
+        .select()
+        .from(toolsRegistry)
+        .where(eq(toolsRegistry.name, name))
+        .get();
+
+      if (existing) continue;
+
+      const apiKey = getSetting("openrouter_api_key");
+
+      if (apiKey) {
+        // Fetch README for context
+        const readme = await fetchReadmeForPlugin(key);
+
+        try {
+          await classifyAndStore({
+            name,
+            readmeContent: readme ?? undefined,
+            forceActive: true,
+          });
+          console.log(`[watcher] classified and added: "${name}"`);
+        } catch (err) {
+          console.error(`[watcher] classification failed for "${name}":`, err);
+          // Fall back to basic insert
+          ensureTool(name, {
+            status: "active",
+            source: "community",
+            category: "Development",
+          });
+        }
+      } else {
+        // No API key — basic insert
+        ensureTool(name, {
+          status: "active",
+          source: "community",
+          category: "Development",
+        });
+      }
     }
   } catch (err) {
     console.error("[watcher] failed to process installed_plugins.json:", err);

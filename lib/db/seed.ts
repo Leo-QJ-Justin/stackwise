@@ -1,12 +1,12 @@
 import { eq } from "drizzle-orm";
 import { db } from "./index";
-import { toolsRegistry, stackItems } from "./schema";
+import { toolsRegistry, stackItems, settings } from "./schema";
 
 const seedTools = [
   {
     name: "Superpowers",
     category: "Development",
-    pluginType: "skills_only",
+    provides: JSON.stringify(["14 skills (brainstorming, debugging, TDD, etc.)", "3 slash commands", "Session hooks"]),
     description: "Enforces structured coding workflows with plan-before-code discipline",
     status: "active",
     source: "community",
@@ -15,7 +15,7 @@ const seedTools = [
   {
     name: "Claude-Mem",
     category: "Prompting & Context",
-    pluginType: "capability",
+    provides: JSON.stringify(["Persistent cross-session memory", "Semantic search over past decisions", "Smart code outline via tree-sitter"]),
     description: "Persistent cross-session memory for schema, conventions, and decisions",
     status: "active",
     source: "community",
@@ -24,7 +24,7 @@ const seedTools = [
   {
     name: "Context7",
     category: "Research & Knowledge",
-    pluginType: "capability",
+    provides: JSON.stringify(["MCP server for library docs", "Up-to-date API references"]),
     description: "Up-to-date library documentation lookup via MCP",
     status: "active",
     source: "community",
@@ -33,7 +33,7 @@ const seedTools = [
   {
     name: "Planning with Files",
     category: "Development",
-    pluginType: "skills_only",
+    provides: JSON.stringify(["File-based task planning", "Session recovery after /clear", "Progress tracking"]),
     description: "Manus-style file-based planning with task tracking and session recovery",
     status: "active",
     source: "community",
@@ -42,7 +42,7 @@ const seedTools = [
   {
     name: "Document Skills",
     category: "Skills & File Handling",
-    pluginType: "hybrid",
+    provides: JSON.stringify(["PDF/DOCX/XLSX/PPTX handling", "Frontend design skill", "Skill creation guide"]),
     description: "PDF, DOCX, XLSX, PPTX handling plus frontend design and skill creation",
     status: "active",
     source: "community",
@@ -51,7 +51,7 @@ const seedTools = [
   {
     name: "PR Review Toolkit",
     category: "Development",
-    pluginType: "capability",
+    provides: JSON.stringify(["Code review agent", "Silent failure hunter", "Type design analyzer", "Test coverage analyzer"]),
     description: "Comprehensive PR review with specialized code review agents",
     status: "active",
     source: "community",
@@ -60,16 +60,15 @@ const seedTools = [
   {
     name: "BMAD Method",
     category: "Development",
-    pluginType: "hybrid",
+    provides: JSON.stringify(["AI-driven agile workflow", "Story generation", "Architecture templates"]),
     description: "Breakthrough Method of Agile AI-Driven Development framework",
     status: "queue",
     source: "community",
-    // replacesToolId set after insert (references Planning with Files)
   },
   {
     name: "Roo Code Rules",
     category: "Prompting & Context",
-    pluginType: "skills_only",
+    provides: JSON.stringify(["Curated coding convention rules", "Style enforcement"]),
     description: "Curated rule sets for Claude coding conventions",
     status: "queue",
     source: "community",
@@ -77,12 +76,11 @@ const seedTools = [
   {
     name: "GSD",
     category: "Development",
-    pluginType: "skills_only",
+    provides: JSON.stringify(["Workflow enforcement", "Task completion tracking"]),
     description: "Get Stuff Done workflow enforcement plugin",
     status: "evaluated_rejected",
     source: "community",
     verdictReason: "Overlaps heavily with Superpowers, less maintained",
-    // replacesToolId set after insert (was suggested to replace Superpowers)
   },
 ];
 
@@ -116,5 +114,15 @@ if (stackEntries.length > 0) {
   db.insert(stackItems).values(stackEntries).run();
   console.log(`Added ${stackEntries.length} items to stack`);
 }
+
+// Seed default settings
+db.insert(settings)
+  .values([
+    { key: "openrouter_api_key", value: "" },
+    { key: "default_model", value: "anthropic/claude-sonnet-4" },
+    { key: "search_model", value: "perplexity/sonar" },
+  ])
+  .run();
+console.log("Seeded default settings");
 
 console.log("Seed complete.");

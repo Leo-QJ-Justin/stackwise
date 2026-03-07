@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { name, category, pluginType, description, status, source, verdictReason, canonicalUrl } = body;
+    const { name, category, provides, description, status, source, verdictReason, canonicalUrl } = body;
 
     if (!name || !category) {
       return NextResponse.json(
@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
     const result = await db.insert(toolsRegistry).values({
       name,
       category,
-      pluginType: pluginType ?? null,
+      provides: provides ?? null,
       description: description ?? null,
       status: status ?? "unclassified",
       source: source ?? "community",
