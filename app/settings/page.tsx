@@ -5,41 +5,70 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ArrowLeft, Save } from "lucide-react";
 import Link from "next/link";
+import { PROVIDERS } from "@/lib/shared";
 
 export default function SettingsPage() {
+  const [provider, setProvider] = useState("openrouter");
   const [apiKey, setApiKey] = useState("");
   const [apiKeyMask, setApiKeyMask] = useState("");
   const [apiKeyChanged, setApiKeyChanged] = useState(false);
-  const [defaultModel, setDefaultModel] = useState("");
+  const [model, setModel] = useState("");
   const [searchModel, setSearchModel] = useState("");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     fetch("/api/settings")
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error(`Settings fetch failed: ${res.status}`);
+        return res.json();
+      })
       .then((data) => {
-        setApiKeyMask(data.openrouter_api_key ?? "");
-        setDefaultModel(data.default_model ?? "");
+        setProvider(data.provider ?? "openrouter");
+        setApiKeyMask(data.api_key ?? "");
+        setModel(data.model ?? "");
         setSearchModel(data.search_model ?? "");
-      });
+      })
+      .catch((err) => console.error("[settings] Failed to load:", err));
   }, []);
+
+  const selectedProvider = PROVIDERS.find((p) => p.id === provider);
+  const needsKey = selectedProvider?.needsKey ?? true;
+
+  function handleProviderChange(newProvider: string) {
+    setProvider(newProvider);
+    const p = PROVIDERS.find((x) => x.id === newProvider);
+    if (p?.defaultModel) {
+      setModel(p.defaultModel);
+    } else {
+      setModel("");
+    }
+    // Reset API key state when switching providers
+    setApiKey("");
+    setApiKeyMask("");
+    setApiKeyChanged(false);
+  }
 
   async function handleSave() {
     setSaving(true);
     const payload: Record<string, string> = {
-      default_model: defaultModel,
+      provider,
+      model,
       search_model: searchModel,
     };
-    // Only send API key if user explicitly changed it
     if (apiKeyChanged) {
-      payload.openrouter_api_key = apiKey;
+      payload.api_key = apiKey;
     }
-    await fetch("/api/settings", {
+    const res = await fetch("/api/settings", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
     });
+    if (!res.ok) {
+      console.error("[settings] Save failed:", res.status);
+      setSaving(false);
+      return;
+    }
     setSaving(false);
     setSaved(true);
     if (apiKeyChanged) {
@@ -67,32 +96,68 @@ export default function SettingsPage() {
       <div className="flex flex-col gap-6">
         <div>
           <label className="mb-1.5 block font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            OpenRouter API Key
+            Provider
           </label>
-          <Input
-            type="password"
-            value={apiKeyChanged ? apiKey : ""}
-            onChange={(e) => {
-              setApiKey(e.target.value);
-              setApiKeyChanged(true);
-            }}
-            placeholder={apiKeyMask || "sk-or-..."}
-          />
+          <select
+            value={provider}
+            onChange={(e) => handleProviderChange(e.target.value)}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer"
+          >
+            <optgroup label="Local (no API key)">
+              {PROVIDERS.filter((p) => p.group === "local").map((p) => (
+                <option key={p.id} value={p.id}>{p.label}</option>
+              ))}
+            </optgroup>
+            <optgroup label="Cloud Providers">
+              {PROVIDERS.filter((p) => p.group === "cloud").map((p) => (
+                <option key={p.id} value={p.id}>{p.label}</option>
+              ))}
+            </optgroup>
+            <optgroup label="Meta Providers (200+ models)">
+              {PROVIDERS.filter((p) => p.group === "meta").map((p) => (
+                <option key={p.id} value={p.id}>{p.label}</option>
+              ))}
+            </optgroup>
+          </select>
+          {selectedProvider && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              {selectedProvider.hint}
+            </p>
+          )}
         </div>
 
-        <div>
-          <label className="mb-1.5 block font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Default Model
-          </label>
-          <Input
-            value={defaultModel}
-            onChange={(e) => setDefaultModel(e.target.value)}
-            placeholder="anthropic/claude-sonnet-4"
-          />
-          <p className="mt-1 text-xs text-muted-foreground">
-            Used for tool classification. Any OpenRouter model ID.
-          </p>
-        </div>
+        {needsKey && (
+          <div>
+            <label className="mb-1.5 block font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              API Key
+            </label>
+            <Input
+              type="password"
+              value={apiKeyChanged ? apiKey : ""}
+              onChange={(e) => {
+                setApiKey(e.target.value);
+                setApiKeyChanged(true);
+              }}
+              placeholder={apiKeyMask || "Enter API key..."}
+            />
+          </div>
+        )}
+
+        {provider !== "claude-cli" && (
+          <div>
+            <label className="mb-1.5 block font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Model
+            </label>
+            <Input
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+              placeholder={selectedProvider?.defaultModel ?? "model-id"}
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              Model ID for tool classification.
+            </p>
+          </div>
+        )}
 
         <div>
           <label className="mb-1.5 block font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground">

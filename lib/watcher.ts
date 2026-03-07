@@ -8,6 +8,7 @@ import { toolsRegistry } from "./db/schema";
 import { classifyAndStore } from "./classify";
 import { fetchReadmeForPlugin } from "./github";
 import { getSetting } from "./settings";
+import { getProvider } from "./shared";
 
 const pluginsJsonPath = path.join(
   os.homedir(),
@@ -85,9 +86,12 @@ async function handlePluginsChange(filePath: string) {
 
       if (existing) continue;
 
-      const apiKey = getSetting("openrouter_api_key");
+      const apiKey = getSetting("api_key") || "";
+      const providerId = getSetting("provider") ?? "openrouter";
+      const providerConfig = getProvider(providerId);
+      const hasClassifier = providerConfig && (!providerConfig.needsKey || apiKey);
 
-      if (apiKey) {
+      if (hasClassifier) {
         // Fetch README for context
         const readme = await fetchReadmeForPlugin(key);
 

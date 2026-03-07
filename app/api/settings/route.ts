@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSetting, setSetting } from "@/lib/settings";
 
-const ALLOWED_KEYS = ["openrouter_api_key", "default_model", "search_model"];
+const ALLOWED_KEYS = ["provider", "api_key", "model", "search_model"];
 
 export async function GET() {
   try {
@@ -9,7 +9,7 @@ export async function GET() {
     for (const key of ALLOWED_KEYS) {
       const value = getSetting(key);
       // Mask the API key — only return last 4 chars for display
-      if (key === "openrouter_api_key" && value) {
+      if (key === "api_key" && value) {
         result[key] = value.length > 4 ? `...${value.slice(-4)}` : "****";
       } else {
         result[key] = value;
