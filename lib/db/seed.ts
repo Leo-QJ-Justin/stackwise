@@ -118,8 +118,9 @@ if (stackEntries.length > 0) {
 // Seed default settings
 db.insert(settings)
   .values([
-    { key: "openrouter_api_key", value: "" },
-    { key: "default_model", value: "anthropic/claude-sonnet-4" },
+    { key: "provider", value: "openrouter" },
+    { key: "api_key", value: "" },
+    { key: "model", value: "anthropic/claude-sonnet-4" },
     { key: "search_model", value: "perplexity/sonar" },
   ])
   .run();

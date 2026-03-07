@@ -1,11 +1,11 @@
 import { generateObject } from "ai";
-import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { z } from "zod";
 import { db } from "./db";
 import { toolsRegistry, stackItems, duplicatesLog } from "./db/schema";
 import { eq } from "drizzle-orm";
 import { getSetting } from "./settings";
-import { CATEGORIES } from "./shared";
+import { CATEGORIES, getProvider } from "./shared";
+import { createModel, classifyViaCLI } from "./providers";
 
 export { CATEGORIES };
 
@@ -61,30 +61,8 @@ function buildStackContext(): string {
     .join("\n");
 }
 
-export async function classifyTool(input: {
-  name: string;
-  description?: string;
-  readmeContent?: string;
-}): Promise<Verdict | null> {
-  const apiKey = getSetting("openrouter_api_key");
-  if (!apiKey) {
-    console.warn("[classify] No OpenRouter API key configured, skipping");
-    return null;
-  }
-
-  const modelId = getSetting("default_model") ?? "anthropic/claude-sonnet-4";
-  const openrouter = createOpenRouter({ apiKey });
-  const stackContext = buildStackContext();
-
-  const toolContext = input.readmeContent
-    ? `Name: ${input.name}\nDescription: ${input.description ?? "N/A"}\n\nREADME content:\n${input.readmeContent}`
-    : `Name: ${input.name}\nDescription: ${input.description ?? "N/A"}`;
-
-  try {
-    const { object: verdict } = await generateObject({
-      model: openrouter(modelId),
-      schema: verdictSchema,
-      prompt: `You are a Claude Code stack analyst. You evaluate tools for a developer's productivity stack.
+function buildPrompt(stackContext: string, toolContext: string): string {
+  return `You are a Claude Code stack analyst. You evaluate tools for a developer's productivity stack.
 
 Given the user's ACTIVE STACK and a NEW TOOL, classify the new tool.
 
@@ -102,19 +80,107 @@ Classification rules:
 
 For "provides", list concrete capabilities (e.g. "5 skills for debugging", "MCP server for docs lookup", "slash command /review").
 
-Return your classification.`,
+Return your classification as JSON with these fields: name, category (one of: ${CATEGORIES.join(", ")}), description, provides (array), verdict (NEW|DUPLICATE|ALTERNATIVE|UNRELATED), mapsTo (string or null), confidence (0-1), reasoning.`;
+}
+
+/**
+ * Parse the Claude CLI response into a Verdict.
+ * The CLI returns a JSON envelope with a `result` field containing the LLM text.
+ */
+function parseCliResponse(raw: string): Verdict {
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error(
+      `Claude CLI returned non-JSON output. The CLI may not be authenticated. ` +
+      `Raw output (first 200 chars): ${raw.slice(0, 200)}`
+    );
+  }
+
+  const text = String(parsed.result ?? raw);
+  const jsonMatch = text.match(/\{[\s\S]*?\}/);
+  if (!jsonMatch) {
+    throw new Error(
+      `Claude CLI response did not contain a JSON classification. ` +
+      `Response (first 200 chars): ${text.slice(0, 200)}`
+    );
+  }
+
+  let verdictRaw: unknown;
+  try {
+    verdictRaw = JSON.parse(jsonMatch[0]);
+  } catch {
+    throw new Error(
+      `Failed to parse classification JSON from CLI response. ` +
+      `Extracted (first 200 chars): ${jsonMatch[0].slice(0, 200)}`
+    );
+  }
+
+  return verdictSchema.parse(verdictRaw);
+}
+
+export async function classifyTool(input: {
+  name: string;
+  description?: string;
+  readmeContent?: string;
+}): Promise<Verdict | null> {
+  const providerId = getSetting("provider") ?? "openrouter";
+  const apiKey = getSetting("api_key") || "";
+  const providerConfig = getProvider(providerId);
+
+  if (!providerConfig) {
+    throw new Error(
+      `Unknown provider "${providerId}" in settings. Go to Settings and select a valid provider.`
+    );
+  }
+
+  // Check if API key is needed but missing
+  if (providerConfig.needsKey && !apiKey) {
+    throw new Error(
+      `No API key configured for ${providerConfig.label}. Add your key in Settings.`
+    );
+  }
+
+  const modelId = getSetting("model") || providerConfig.defaultModel;
+  const stackContext = buildStackContext();
+
+  const toolContext = input.readmeContent
+    ? `Name: ${input.name}\nDescription: ${input.description ?? "N/A"}\n\nREADME content:\n${input.readmeContent}`
+    : `Name: ${input.name}\nDescription: ${input.description ?? "N/A"}`;
+
+  const prompt = buildPrompt(stackContext, toolContext);
+
+  try {
+    // Claude Code CLI path
+    if (providerId === "claude-cli") {
+      const raw = await classifyViaCLI(prompt);
+      return parseCliResponse(raw);
+    }
+
+    // AI SDK path (all other providers)
+    const model = await createModel(providerId, apiKey, modelId);
+    const { object: verdict } = await generateObject({
+      model,
+      schema: verdictSchema,
+      prompt,
     });
 
     return verdict;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     if (msg.includes("401") || msg.includes("Unauthorized")) {
-      throw new Error("OpenRouter API key is invalid. Check your key in Settings.");
+      throw new Error(`${providerConfig.label} API key is invalid. Check your key in Settings.`);
     }
     if (msg.includes("429")) {
-      throw new Error("OpenRouter rate limit exceeded. Try again later.");
+      throw new Error(`${providerConfig.label} rate limit exceeded. Try again later.`);
     }
-    console.error(`[classify] LLM call failed (model: ${modelId}):`, err);
+    if (msg.includes("ECONNREFUSED") && providerId === "ollama") {
+      throw new Error(
+        "Cannot connect to Ollama at localhost:11434. Make sure Ollama is running (`ollama serve`)."
+      );
+    }
+    console.error(`[classify] LLM call failed (${providerConfig.label}, model: ${modelId}):`, err);
     throw err;
   }
 }
@@ -155,7 +221,6 @@ export async function classifyAndStore(input: {
         break;
       case "ALTERNATIVE":
         status = "queue";
-        // Look up the tool ID from mapsTo name
         if (verdict.mapsTo) {
           const mapped = db
             .select()
@@ -188,12 +253,10 @@ export async function classifyAndStore(input: {
     .returning()
     .all();
 
-  // If forced active (installed tool), add to stack
   if (input.forceActive) {
     db.insert(stackItems).values({ toolId: tool.id }).run();
   }
 
-  // Log duplicates/unrelated to duplicates_log
   if (
     verdict &&
     (verdict.verdict === "DUPLICATE" || verdict.verdict === "UNRELATED")
@@ -207,7 +270,6 @@ export async function classifyAndStore(input: {
       .run();
   }
 
-  // Log overlap warning for installed tools
   if (
     input.forceActive &&
     verdict &&
