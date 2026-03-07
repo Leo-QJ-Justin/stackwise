@@ -1,4 +1,4 @@
-import chokidar from "chokidar";
+import chokidar, { type FSWatcher } from "chokidar";
 import fs from "fs";
 import os from "os";
 import path from "path";
@@ -117,7 +117,7 @@ function handleSkillUnlink(filePath: string) {
 // ── Public entry point ─────────────────────────────────────────────
 
 export function startWatcher() {
-  const watchers: chokidar.FSWatcher[] = [];
+  const watchers: FSWatcher[] = [];
 
   // ── Watch installed_plugins.json ──────────────────────────────
   const pluginsDir = path.dirname(pluginsJsonPath);
