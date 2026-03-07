@@ -2,7 +2,7 @@ import chokidar, { type FSWatcher } from "chokidar";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { eq } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { db } from "./db";
 import { toolsRegistry } from "./db/schema";
 import { classifyAndStore } from "./classify";
@@ -23,7 +23,9 @@ const skillsGlob = path.join(os.homedir(), ".claude", "skills", "*", "SKILL.md")
  * and join with a space.  e.g. "my-cool-plugin" -> "My Cool Plugin"
  */
 function formatName(raw: string): string {
-  return raw
+  // Plugin keys are "name@publisher" — only use the name part
+  const name = raw.split("@")[0];
+  return name
     .split(/[-_]/)
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
@@ -40,7 +42,7 @@ function ensureTool(
   const existing = db
     .select()
     .from(toolsRegistry)
-    .where(eq(toolsRegistry.name, name))
+    .where(sql`lower(replace(${toolsRegistry.name}, '-', ' ')) = lower(replace(${name}, '-', ' '))`)
     .get();
 
   if (existing) return;
@@ -74,11 +76,11 @@ async function handlePluginsChange(filePath: string) {
     for (const key of pluginKeys) {
       const name = formatName(key);
 
-      // Check if already in registry
+      // Check if already in registry (case-insensitive, normalize hyphens/spaces)
       const existing = db
         .select()
         .from(toolsRegistry)
-        .where(eq(toolsRegistry.name, name))
+        .where(sql`lower(replace(${toolsRegistry.name}, '-', ' ')) = lower(replace(${name}, '-', ' '))`)
         .get();
 
       if (existing) continue;
@@ -143,7 +145,7 @@ function handleSkillUnlink(filePath: string) {
 
     db.update(toolsRegistry)
       .set({ status: "archived" })
-      .where(eq(toolsRegistry.name, name))
+      .where(sql`lower(replace(${toolsRegistry.name}, '-', ' ')) = lower(replace(${name}, '-', ' '))`)
       .run();
 
     console.log(`[watcher] archived skill: "${name}"`);
