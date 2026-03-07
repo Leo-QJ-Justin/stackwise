@@ -8,6 +8,8 @@ import Link from "next/link";
 
 export default function SettingsPage() {
   const [apiKey, setApiKey] = useState("");
+  const [apiKeyMask, setApiKeyMask] = useState("");
+  const [apiKeyChanged, setApiKeyChanged] = useState(false);
   const [defaultModel, setDefaultModel] = useState("");
   const [searchModel, setSearchModel] = useState("");
   const [saving, setSaving] = useState(false);
@@ -17,7 +19,7 @@ export default function SettingsPage() {
     fetch("/api/settings")
       .then((res) => res.json())
       .then((data) => {
-        setApiKey(data.openrouter_api_key ?? "");
+        setApiKeyMask(data.openrouter_api_key ?? "");
         setDefaultModel(data.default_model ?? "");
         setSearchModel(data.search_model ?? "");
       });
@@ -25,17 +27,26 @@ export default function SettingsPage() {
 
   async function handleSave() {
     setSaving(true);
+    const payload: Record<string, string> = {
+      default_model: defaultModel,
+      search_model: searchModel,
+    };
+    // Only send API key if user explicitly changed it
+    if (apiKeyChanged) {
+      payload.openrouter_api_key = apiKey;
+    }
     await fetch("/api/settings", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        openrouter_api_key: apiKey,
-        default_model: defaultModel,
-        search_model: searchModel,
-      }),
+      body: JSON.stringify(payload),
     });
     setSaving(false);
     setSaved(true);
+    if (apiKeyChanged) {
+      setApiKeyMask(apiKey.length > 4 ? `...${apiKey.slice(-4)}` : "****");
+      setApiKey("");
+      setApiKeyChanged(false);
+    }
     setTimeout(() => setSaved(false), 2000);
   }
 
@@ -60,9 +71,12 @@ export default function SettingsPage() {
           </label>
           <Input
             type="password"
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            placeholder="sk-or-..."
+            value={apiKeyChanged ? apiKey : ""}
+            onChange={(e) => {
+              setApiKey(e.target.value);
+              setApiKeyChanged(true);
+            }}
+            placeholder={apiKeyMask || "sk-or-..."}
           />
         </div>
 

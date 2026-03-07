@@ -5,17 +5,9 @@ import { db } from "./db";
 import { toolsRegistry, stackItems, duplicatesLog } from "./db/schema";
 import { eq } from "drizzle-orm";
 import { getSetting } from "./settings";
+import { CATEGORIES } from "./shared";
 
-export const CATEGORIES = [
-  "Development",
-  "Skills & File Handling",
-  "Integrations",
-  "Workflow & Agents",
-  "Prompting & Context",
-  "Research & Knowledge",
-  "UI & Frontend",
-  "My Skills",
-] as const;
+export { CATEGORIES };
 
 export const verdictSchema = z.object({
   name: z.string().describe("Canonical name of the tool"),
@@ -42,6 +34,8 @@ export const verdictSchema = z.object({
 });
 
 export type Verdict = z.infer<typeof verdictSchema>;
+
+export { parseProvides } from "./shared";
 
 function buildStackContext(): string {
   const items = db
@@ -86,10 +80,11 @@ export async function classifyTool(input: {
     ? `Name: ${input.name}\nDescription: ${input.description ?? "N/A"}\n\nREADME content:\n${input.readmeContent}`
     : `Name: ${input.name}\nDescription: ${input.description ?? "N/A"}`;
 
-  const { object: verdict } = await generateObject({
-    model: openrouter(modelId),
-    schema: verdictSchema,
-    prompt: `You are a Claude Code stack analyst. You evaluate tools for a developer's productivity stack.
+  try {
+    const { object: verdict } = await generateObject({
+      model: openrouter(modelId),
+      schema: verdictSchema,
+      prompt: `You are a Claude Code stack analyst. You evaluate tools for a developer's productivity stack.
 
 Given the user's ACTIVE STACK and a NEW TOOL, classify the new tool.
 
@@ -108,9 +103,20 @@ Classification rules:
 For "provides", list concrete capabilities (e.g. "5 skills for debugging", "MCP server for docs lookup", "slash command /review").
 
 Return your classification.`,
-  });
+    });
 
-  return verdict;
+    return verdict;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes("401") || msg.includes("Unauthorized")) {
+      throw new Error("OpenRouter API key is invalid. Check your key in Settings.");
+    }
+    if (msg.includes("429")) {
+      throw new Error("OpenRouter rate limit exceeded. Try again later.");
+    }
+    console.error(`[classify] LLM call failed (model: ${modelId}):`, err);
+    throw err;
+  }
 }
 
 export async function classifyAndStore(input: {

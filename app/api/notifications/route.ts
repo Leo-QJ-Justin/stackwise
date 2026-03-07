@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { duplicatesLog } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 
 // GET /api/notifications — unreviewed duplicate/overlap entries
 export async function GET() {
@@ -17,6 +17,7 @@ export async function GET() {
       items,
     });
   } catch (error) {
+    console.error("[notifications] Failed to fetch:", error);
     return NextResponse.json(
       { error: "Failed to fetch notifications" },
       { status: 500 }
@@ -30,22 +31,25 @@ export async function PATCH(request: NextRequest) {
     const body = await request.json();
     const { ids } = body;
 
-    if (!Array.isArray(ids) || ids.length === 0) {
+    if (
+      !Array.isArray(ids) ||
+      ids.length === 0 ||
+      !ids.every((id: unknown) => Number.isInteger(id) && (id as number) > 0)
+    ) {
       return NextResponse.json(
-        { error: "ids array is required" },
+        { error: "ids must be a non-empty array of positive integers" },
         { status: 400 }
       );
     }
 
-    for (const id of ids) {
-      db.update(duplicatesLog)
-        .set({ reviewed: 1 })
-        .where(eq(duplicatesLog.id, id))
-        .run();
-    }
+    db.update(duplicatesLog)
+      .set({ reviewed: 1 })
+      .where(inArray(duplicatesLog.id, ids))
+      .run();
 
     return NextResponse.json({ ok: true });
   } catch (error) {
+    console.error("[notifications] Failed to update:", error);
     return NextResponse.json(
       { error: "Failed to update notifications" },
       { status: 500 }

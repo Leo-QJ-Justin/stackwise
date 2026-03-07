@@ -170,9 +170,15 @@ export function startWatcher() {
       ignoreInitial: false,
     });
 
+    const safePluginsHandler = (p: string) => {
+      handlePluginsChange(p).catch((err) =>
+        console.error("[watcher] unhandled error in plugins handler:", err)
+      );
+    };
+
     pluginWatcher
-      .on("add", handlePluginsChange)
-      .on("change", handlePluginsChange)
+      .on("add", safePluginsHandler)
+      .on("change", safePluginsHandler)
       .on("error", (err) =>
         console.error("[watcher] plugins watcher error:", err)
       );
