@@ -19,7 +19,12 @@ export async function fetchReadmeForPlugin(
       // Truncate to ~4000 chars to keep prompt size reasonable
       return text.slice(0, 4000);
     }
-  } catch {}
+    if (res.status === 403) {
+      console.warn("[github] Rate limited fetching README. Consider adding a GitHub token.");
+    }
+  } catch (err) {
+    console.warn(`[github] Failed to fetch README from ${readmeUrl}:`, err);
+  }
 
   // Try GitHub search as fallback
   const searchUrl = `https://api.github.com/search/repositories?q=${encodeURIComponent(name + " claude")}`;
@@ -38,8 +43,12 @@ export async function fetchReadmeForPlugin(
           return text.slice(0, 4000);
         }
       }
+    } else if (res.status === 403) {
+      console.warn("[github] Rate limited on search fallback.");
     }
-  } catch {}
+  } catch (err) {
+    console.warn(`[github] Search fallback failed for "${name}":`, err);
+  }
 
   return null;
 }

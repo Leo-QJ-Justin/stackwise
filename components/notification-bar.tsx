@@ -19,9 +19,14 @@ export function NotificationBar() {
 
   useEffect(() => {
     fetch("/api/notifications")
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) throw new Error(`Notifications API returned ${res.status}`);
+        return res.json();
+      })
       .then((data) => setItems(data.items ?? []))
-      .catch(() => {});
+      .catch((err) => {
+        console.error("[notification-bar] Failed to load notifications:", err);
+      });
   }, []);
 
   const count = items.length;
@@ -30,12 +35,20 @@ export function NotificationBar() {
 
   async function handleDismiss() {
     const ids = items.map((i) => i.id);
-    await fetch("/api/notifications", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ids }),
-    });
-    setDismissed(true);
+    try {
+      const res = await fetch("/api/notifications", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      });
+      if (!res.ok) {
+        console.error("[notification-bar] Failed to dismiss:", res.status);
+        return;
+      }
+      setDismissed(true);
+    } catch (err) {
+      console.error("[notification-bar] Failed to dismiss notifications:", err);
+    }
   }
 
   return (

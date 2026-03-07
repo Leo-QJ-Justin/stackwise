@@ -12,16 +12,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 
-const CATEGORIES = [
-  "Development",
-  "Skills & File Handling",
-  "Integrations",
-  "Workflow & Agents",
-  "Prompting & Context",
-  "Research & Knowledge",
-  "UI & Frontend",
-  "My Skills",
-] as const;
+import { CATEGORIES, parseProvides } from "@/lib/shared";
 
 interface ToolData {
   id: number;
@@ -42,7 +33,8 @@ interface StackItem {
 }
 
 function ProvidesHint({ provides }: { provides: string }) {
-  const items: string[] = JSON.parse(provides);
+  const items = parseProvides(provides);
+  if (items.length === 0) return null;
   return (
     <span className="text-[10px] text-muted-foreground/70">
       {items.slice(0, 2).join(" · ")}

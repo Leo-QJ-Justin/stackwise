@@ -8,7 +8,7 @@ export function getSetting(key: string): string | null {
     .from(settings)
     .where(eq(settings.key, key))
     .get();
-  return row?.value ?? null;
+  return row?.value || null;
 }
 
 export function setSetting(key: string, value: string) {

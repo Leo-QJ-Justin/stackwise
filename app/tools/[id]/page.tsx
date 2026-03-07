@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { parseProvides } from "@/lib/classify";
 
 export default async function ToolDetailPage({
   params,
@@ -51,9 +52,9 @@ export default async function ToolDetailPage({
 
       <div className="flex items-center gap-3">
         <h1 className="font-mono text-2xl font-bold">{tool.name}</h1>
-        {tool.provides && (
+        {tool.provides && parseProvides(tool.provides).length > 0 && (
           <Badge variant="secondary">
-            {JSON.parse(tool.provides).length} capabilities
+            {parseProvides(tool.provides).length} capabilities
           </Badge>
         )}
         <Badge

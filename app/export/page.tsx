@@ -5,6 +5,7 @@ import { SnapshotPreview } from "@/components/snapshot-preview";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { parseProvides } from "@/lib/classify";
 
 export default async function ExportPage() {
   const rows = await db
@@ -47,8 +48,9 @@ export default async function ExportPage() {
     if (items.length === 0) continue;
     markdown += `\n## ${cat}\n\n`;
     for (const item of items) {
-      const providesLabel = item.provides
-        ? ` (${JSON.parse(item.provides).slice(0, 2).join(", ")})`
+      const parsed = parseProvides(item.provides);
+      const providesLabel = parsed.length > 0
+        ? ` (${parsed.slice(0, 2).join(", ")})`
         : "";
       const desc = item.description ? ` — ${item.description}` : "";
       markdown += `- **${item.name}**${providesLabel}${desc}\n`;
