@@ -27,7 +27,7 @@ interface ToolData {
   id: number;
   name: string;
   category: string;
-  pluginType: string | null;
+  provides: string | null;
   description: string | null;
   verdictReason?: string | null;
   replacesToolId?: number | null;
@@ -41,20 +41,12 @@ interface StackItem {
   tool: ToolData;
 }
 
-const pluginBadgeColors: Record<string, string> = {
-  skills_only: "border-blue-500/30 text-blue-400 bg-blue-500/10",
-  capability: "border-amber-500/30 text-amber-400 bg-amber-500/10",
-  hybrid: "border-violet-500/30 text-violet-400 bg-violet-500/10",
-};
-
-function PluginBadge({ type }: { type: string }) {
+function ProvidesHint({ provides }: { provides: string }) {
+  const items: string[] = JSON.parse(provides);
   return (
-    <Badge
-      variant="outline"
-      className={`text-[10px] leading-none ${pluginBadgeColors[type] ?? ""}`}
-    >
-      {type}
-    </Badge>
+    <span className="text-[10px] text-muted-foreground/70">
+      {items.slice(0, 2).join(" · ")}
+    </span>
   );
 }
 
@@ -253,8 +245,8 @@ export function StackDashboard() {
                               <span className="font-mono text-[13px] font-medium group-hover:text-primary transition-colors">
                                 {item.tool.name}
                               </span>
-                              {item.tool.pluginType && (
-                                <PluginBadge type={item.tool.pluginType} />
+                              {item.tool.provides && (
+                                <ProvidesHint provides={item.tool.provides} />
                               )}
                             </div>
                             {item.tool.description && (
@@ -280,8 +272,8 @@ export function StackDashboard() {
                                   <span className="font-mono text-[13px] font-medium">
                                     {repl.name}
                                   </span>
-                                  {repl.pluginType && (
-                                    <PluginBadge type={repl.pluginType} />
+                                  {repl.provides && (
+                                    <ProvidesHint provides={repl.provides} />
                                   )}
                                 </div>
                                 {repl.description && (
@@ -354,8 +346,8 @@ export function StackDashboard() {
                               <span className="font-mono text-[13px] font-medium">
                                 {tool.name}
                               </span>
-                              {tool.pluginType && (
-                                <PluginBadge type={tool.pluginType} />
+                              {tool.provides && (
+                                <ProvidesHint provides={tool.provides} />
                               )}
                             </div>
                             {tool.description && (

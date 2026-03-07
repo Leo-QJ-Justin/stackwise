@@ -59,9 +59,12 @@ export function TopBar() {
           Export
         </Link>
 
-        <Button variant="ghost" size="icon-sm" className="cursor-pointer">
+        <Link
+          href="/settings"
+          className={buttonVariants({ variant: "ghost", size: "icon-sm" })}
+        >
           <Settings className="size-3.5" />
-        </Button>
+        </Link>
       </div>
     </header>
   );

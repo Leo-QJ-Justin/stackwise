@@ -16,7 +16,7 @@ export async function GET() {
           id: toolsRegistry.id,
           name: toolsRegistry.name,
           category: toolsRegistry.category,
-          pluginType: toolsRegistry.pluginType,
+          provides: toolsRegistry.provides,
           description: toolsRegistry.description,
           status: toolsRegistry.status,
           source: toolsRegistry.source,

@@ -11,7 +11,7 @@ export default async function ExportPage() {
     .select({
       name: toolsRegistry.name,
       category: toolsRegistry.category,
-      pluginType: toolsRegistry.pluginType,
+      provides: toolsRegistry.provides,
       description: toolsRegistry.description,
     })
     .from(stackItems)
@@ -47,9 +47,11 @@ export default async function ExportPage() {
     if (items.length === 0) continue;
     markdown += `\n## ${cat}\n\n`;
     for (const item of items) {
-      const pluginLabel = item.pluginType ? ` (${item.pluginType})` : "";
+      const providesLabel = item.provides
+        ? ` (${JSON.parse(item.provides).slice(0, 2).join(", ")})`
+        : "";
       const desc = item.description ? ` — ${item.description}` : "";
-      markdown += `- **${item.name}**${pluginLabel}${desc}\n`;
+      markdown += `- **${item.name}**${providesLabel}${desc}\n`;
     }
   }
 
