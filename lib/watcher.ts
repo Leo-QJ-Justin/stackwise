@@ -178,7 +178,7 @@ export function startWatcher() {
   } else {
     const pluginWatcher = chokidar.watch(pluginsJsonPath, {
       persistent: true,
-      ignoreInitial: false,
+      ignoreInitial: true, // Scan handles initial classification — watcher only reacts to new installs
     });
 
     const safePluginsHandler = (p: string) => {
