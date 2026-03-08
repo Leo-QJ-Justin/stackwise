@@ -1,0 +1,34 @@
+services:
+  n8n:
+    image: docker.n8n.io/n8nio/n8n:1.76.1
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_BLOCK_ENV_ACCESS_IN_NODE=false
+      - N8N_DEFAULT_BINARY_DATA_MODE=filesystem
+      - N8N_PAYLOAD_SIZE_MAX=256
+      - APIFY_TOKEN=${APIFY_TOKEN}
+      - OCRSPACE_API_KEY=${OCRSPACE_API_KEY}
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - WHISPER_URL=http://whisper:8000
+      - STACKWISE_URL=http://host.docker.internal:3000
+    volumes:
+      - n8n_data:/home/node/.n8n
+      - ./workflow.json:/home/node/workflow.json:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      whisper:
+        condition: service_started
+    restart: unless-stopped
+
+  whisper:
+    image: fedirz/faster-whisper-server:latest-cpu
+    ports:
+      - "8000:8000"
+    environment:
+      - WHISPER__MODEL=Systran/faster-whisper-small
+    restart: unless-stopped
+
+volumes:
+  n8n_data:
