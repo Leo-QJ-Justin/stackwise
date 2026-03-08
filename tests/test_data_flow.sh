@@ -287,13 +287,9 @@ if [ "$STATUS" = "400" ]; then pass "Null name rejected"; else fail "Null name" 
 # ── Cleanup ──
 echo ""
 echo "── Cleanup ──"
-CLEANED=$(curl -s "$BASE/api/tools" | python3 -c "
-import sys,json
-tools = json.load(sys.stdin)
-test_tools = [t for t in tools if t['name'].startswith('__')]
-print(len(test_tools))
-" 2>/dev/null)
-pass "Test data to clean: $CLEANED tools"
+
+node "$(dirname "$0")/cleanup_test_data.js"
+pass "Test data cleaned up"
 
 # ── Summary ──
 echo ""
