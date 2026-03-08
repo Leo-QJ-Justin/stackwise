@@ -8,24 +8,41 @@ The Claude ecosystem is growing fast. Plugins and skills get released weekly, cr
 
 ## How It Works
 
+StackWise uses a two-step classification pipeline that separates **discovery** (what is this tool?) from **comparison** (how does it fit my stack?):
+
 ```
-New tool submitted (manual, URL, or auto-detected)
+Tool arrives (pipeline, scan, or file watcher)
     |
     v
-Check registry — already known?
-    |--- Known & rejected ---> auto-discard, log reason, done
-    |--- Known & active -----> flag as duplicate, done
-    |--- Unknown ------------> classify via LLM
+Registry dedup check (case-insensitive, hyphen-normalized)
+    |--- Already known -------> bump mention count, done
+    |--- Unknown -------------> two-step classification:
                                    |
                                    v
-                              Structured verdict:
-                              NEW | DUPLICATE | ALTERNATIVE | UNRELATED
+                              Step 1: DISCOVERY (LLM call)
+                              → name, category, description, capabilities
                                    |
                                    v
-                              Route to Queue, Stack, or Duplicates Log
+                              Step 2: COMPARISON (LLM call)
+                              → verdict: NEW | DUPLICATE | ALTERNATIVE | UNRELATED
+                              → mapsTo, confidence, reasoning
+                              (non-fatal — tool keeps metadata if this fails)
+                                   |
+                                   v
+                              Route based on source + verdict:
+                              ├─ Installed (forceActive) → always "active", log overlaps
+                              └─ Community → queue (NEW/ALT) or rejected (DUP/UNRELATED)
 ```
 
-Claude API is only called for genuinely unknown tools. The registry acts as a cache — after a few weeks most submissions resolve instantly without an API call.
+### Three entry points, one pipeline
+
+| Route | Source | Trigger |
+|-------|--------|---------|
+| `/api/scan` | Installed plugins | Manual scan button or auto-scan on first load |
+| `/api/ingest` | n8n automation | Instagram/social media pipeline POSTs tool mentions |
+| `lib/watcher.ts` | File system | chokidar watches `~/.claude/plugins/` and `~/.claude/skills/` |
+
+All three routes call `classifyAndStore()` which runs both steps internally. The LLM is only called for genuinely unknown tools — the registry acts as a cache.
 
 ## Features
 
@@ -33,7 +50,7 @@ Claude API is only called for genuinely unknown tools. The registry acts as a ca
 - **8 category taxonomy**: Development, Skills & File Handling, Integrations, Workflow & Agents, Prompting & Context, Research & Knowledge, UI & Frontend, My Skills
 - **Auto-detection**: File watcher monitors `~/.claude/plugins/` and `~/.claude/skills/` for changes
 - **Multi-provider classification**: Claude CLI, Ollama, Anthropic, OpenAI, Google Gemini, Mistral, Amazon Bedrock, OpenRouter
-- **Structured verdicts**: Every classification returns name, category, description, capabilities, verdict, confidence, and reasoning
+- **Two-step classification**: Discovery (metadata extraction) and comparison (stack verdict) as separate LLM calls — comparison failure is non-fatal
 - **Duplicate detection**: Case-insensitive, hyphen-normalized matching prevents duplicate entries
 - **Stack export**: Export your curated stack as markdown context for any Claude conversation
 - **Swap tracking**: Replace tools and keep a record of what changed and why
