@@ -346,7 +346,7 @@ export async function classifyAndStore(input: {
       description: meta.description,
       provides: JSON.stringify(meta.provides),
       status,
-      source: input.forceActive ? "installed" : "community",
+      source: "community",
       verdictReason: verdict?.reasoning ?? null,
       replacesToolId,
     })
