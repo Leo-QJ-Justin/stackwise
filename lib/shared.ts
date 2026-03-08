@@ -1,13 +1,15 @@
-export const CATEGORIES = [
-  "Development",
-  "Skills & File Handling",
-  "Integrations",
-  "Workflow & Agents",
-  "Prompting & Context",
-  "Research & Knowledge",
-  "UI & Frontend",
-  "My Skills",
-] as const;
+export const CATEGORY_DEFINITIONS = {
+  "Development": "Core dev tools: linters, formatters, debuggers, test runners, build systems, package managers, CLI utilities.",
+  "Skills & File Handling": "Claude Code skills that create or manipulate files (docs, spreadsheets, PDFs, presentations) and skill authoring tools.",
+  "Integrations": "Connectors to external services: GitHub, Slack, databases, APIs, CI/CD, cloud platforms.",
+  "Workflow & Agents": "Multi-step orchestration: planning, task execution, code review pipelines, autonomous agent frameworks, git workflow tools.",
+  "Prompting & Context": "Tools that manage LLM context, memory, prompt engineering, documentation retrieval, or knowledge injection.",
+  "Research & Knowledge": "Information gathering: web search, documentation lookup, data analysis, content summarization.",
+  "UI & Frontend": "Frontend design systems, component libraries, CSS tools, visual design, accessibility auditing.",
+  "My Skills": "User-created custom skills (local SKILL.md files). Never classify installed plugins into this category.",
+} as const;
+
+export const CATEGORIES = Object.keys(CATEGORY_DEFINITIONS) as unknown as readonly [string, ...string[]];
 
 export interface ProviderConfig {
   id: string;

@@ -4,7 +4,7 @@ import { db } from "./db";
 import { toolsRegistry, stackItems, duplicatesLog } from "./db/schema";
 import { eq, sql } from "drizzle-orm";
 import { getSetting } from "./settings";
-import { CATEGORIES, getProvider } from "./shared";
+import { CATEGORIES, CATEGORY_DEFINITIONS, getProvider } from "./shared";
 import { createModel, classifyViaCLI } from "./providers";
 
 export { CATEGORIES };
@@ -132,14 +132,21 @@ export async function classifyToolMetadata(input: {
     ? `Name: ${input.name}\nDescription: ${input.description ?? "N/A"}\n\nREADME content:\n${input.readmeContent}`
     : `Name: ${input.name}\nDescription: ${input.description ?? "N/A"}`;
 
+  const categoryGuide = Object.entries(CATEGORY_DEFINITIONS)
+    .map(([cat, def]) => `- ${cat}: ${def}`)
+    .join("\n");
+
   const prompt = `You are a Claude Code tool cataloger. Given a tool's name and README, extract its metadata.
 
 TOOL:
 ${toolContext}
 
+CATEGORIES (pick the single best fit):
+${categoryGuide}
+
 For "provides", list concrete capabilities (e.g. "5 skills for debugging", "MCP server for docs lookup", "slash command /review").
 
-Return: name (canonical), category (one of: ${CATEGORIES.join(", ")}), description (one-line), provides (array of capabilities).`;
+Return: name (canonical), category (one of the categories above), description (one-line), provides (array of capabilities).`;
 
   try {
     if (providerId === "claude-cli") {
