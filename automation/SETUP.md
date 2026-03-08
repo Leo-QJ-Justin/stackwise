@@ -5,123 +5,111 @@ This n8n workflow monitors Instagram creators for Claude Code tool mentions, ext
 ## Prerequisites
 
 - StackWise running locally (`npm run dev` on port 3000)
-- n8n installed (Docker or n8n Cloud)
-- API keys for: Apify, OCR.Space, OpenAI (Whisper), Anthropic
+- n8n v2.10+ (self-hosted via npx)
+- Docker (for local Whisper transcription)
+- API keys for: Apify, OCR.Space, OpenRouter
 
-## 1. Start n8n
+## 1. Start Local Whisper Server
 
-**Docker (recommended):**
+Run a local Whisper model for video transcription (no OpenAI key needed):
+
 ```bash
-docker run -it --rm \
-  --name n8n \
-  -p 5678:5678 \
-  -v n8n_data:/home/node/.n8n \
-  n8nio/n8n
+docker run -d --name whisper \
+  -p 8000:8000 \
+  -e WHISPER__MODEL=Systran/faster-whisper-small \
+  fedirz/faster-whisper-server:latest-cpu
+```
+
+Verify: `curl http://localhost:8000/health` should return `OK`.
+
+**GPU support** (optional, faster): Use `latest-cuda` tag and add `--gpus all`.
+
+## 2. Start n8n
+
+```bash
+N8N_BLOCK_ENV_ACCESS_IN_NODE=false \
+N8N_DEFAULT_BINARY_DATA_MODE=filesystem \
+N8N_PAYLOAD_SIZE_MAX=256 \
+APIFY_TOKEN=your_apify_token \
+OCRSPACE_API_KEY=your_ocrspace_key \
+OPENROUTER_API_KEY=your_openrouter_key \
+npx n8n@2.10.4
 ```
 
 Open http://localhost:5678 and create an account.
 
-**n8n Cloud:** Sign up at https://n8n.io — free tier is sufficient.
+### Environment Variables
 
-## 2. Import the Workflow
+| Variable | Description | Get it from |
+|----------|-------------|-------------|
+| `APIFY_TOKEN` | Apify API token | https://console.apify.com/account#/integrations |
+| `OCRSPACE_API_KEY` | OCR.Space API key | https://ocr.space/ocrapi (25K req/month free) |
+| `OPENROUTER_API_KEY` | OpenRouter API key | https://openrouter.ai/keys |
+| `N8N_BLOCK_ENV_ACCESS_IN_NODE` | Must be `false` to allow `$env` access in workflows | — |
+| `N8N_DEFAULT_BINARY_DATA_MODE` | Set to `filesystem` to handle large video files | — |
+| `N8N_PAYLOAD_SIZE_MAX` | Max payload size in MB (default 16, set to 256) | — |
 
-1. Open n8n editor
+## 3. Import the Workflow
+
+1. Open n8n editor at http://localhost:5678
 2. Click **...** menu → **Import from File**
 3. Select `automation/workflow.json` from this project
 4. The workflow will appear with all nodes connected
 
-## 3. Create Credentials
-
-In n8n, go to **Settings → Credentials** and create:
-
-### Anthropic API
-- Type: **Anthropic**
-- API Key: Your Anthropic API key from https://console.anthropic.com
-
-### OpenAI Account
-- Type: **OpenAI**
-- API Key: Your OpenAI API key from https://platform.openai.com
-- Used for Whisper audio transcription of reels
-
-### OCR.Space (Header Auth)
-The OCR node uses HTTP Request with a header parameter. The API key is read from the `OCRSPACE_API_KEY` environment variable in n8n.
-
-Set it in your n8n environment:
-```bash
-# Docker
-docker run ... -e OCRSPACE_API_KEY=your_key_here n8nio/n8n
-
-# Or in n8n UI: Settings → Variables → Add OCRSPACE_API_KEY
-```
-
-Get a free key at https://ocr.space/ocrapi (25,000 requests/month free).
-
-For testing, use the public test key: `helloworld`
-
-### Apify Token
-The Apify token is read from the `APIFY_TOKEN` environment variable in n8n.
-
-Set it the same way as OCR.Space above. Get your token at https://console.apify.com/account#/integrations
-
 ## 4. Set Up Apify Instagram Scraper
 
-1. Go to https://apify.com and create an account (free tier)
+1. Go to https://apify.com and create an account (free tier: $5/month credits)
 2. Find the actor: **apify/instagram-post-scraper**
 3. Configure a task with:
    - **Direct URLs** or **usernames** of creators to monitor
    - **Results limit:** 10-20 per creator (recent posts only)
-
-### Suggested creators to monitor:
-Add your preferred Claude Code content creators here.
 
 ## 5. Configure Apify Webhook
 
 1. In Apify Console, go to your scraper task → **Integrations** tab
 2. Add a webhook:
    - **Event:** `ACTOR.RUN.SUCCEEDED`
-   - **URL:** Your n8n webhook URL (shown in the Webhook node)
-     - Local: `http://localhost:5678/webhook/apify-callback`
-     - n8n Cloud: `https://your-instance.app.n8n.cloud/webhook/apify-callback`
+   - **URL:** Your n8n webhook URL
+     - Local: requires a tunnel (ngrok/cloudflared) since Apify can't reach localhost
+     - Example: `https://your-tunnel.ngrok.io/webhook/apify-callback`
 3. Save the webhook
 
-## 6. Configure StackWise Watchlist (Optional)
-
-In StackWise Settings, add creator handles to the watchlist. This is stored as a JSON array:
-
-```
-PUT /api/settings
-{ "watchlist": "[\"creator1\", \"creator2\"]" }
+**Note:** For local development, you can manually trigger the webhook:
+```bash
+curl -X POST http://localhost:5678/webhook-test/apify-callback \
+  -H "Content-Type: application/json" \
+  -d '{"resource":{"defaultDatasetId":"YOUR_DATASET_ID"},"eventType":"ACTOR.RUN.SUCCEEDED"}'
 ```
 
-## 7. Test the Pipeline
+## 6. Test the Pipeline
 
-### Manual test with sample data:
+### Manual test with webhook:
+
+1. Run your Apify scraper task manually
+2. Copy the dataset ID from the Apify run results
+3. In n8n, open the workflow and click **"Listen for Test Event"** on the Webhook node
+4. Fire the test webhook (see curl command above)
+5. Check StackWise dashboard for new tools in Queue
+
+### Direct ingest test:
 
 ```bash
-# Test the ingest endpoint directly
 curl -X POST http://localhost:3000/api/ingest \
   -H "Content-Type: application/json" \
   -d '{
     "sourceUrl": "https://www.instagram.com/p/test123/",
     "postType": "image",
-    "rawText": "Top 5 Claude Code plugins: Superpowers for TDD, Context7 for docs lookup, Claude-Mem for memory",
-    "tools": ["Superpowers", "Context7", "Claude-Mem"],
+    "rawText": "Top 5 Claude Code plugins: Superpowers for TDD, Context7 for docs lookup",
+    "tools": ["Superpowers", "Context7"],
     "creatorHandle": "testcreator"
   }'
 ```
 
-### Full pipeline test:
-
-1. Activate the workflow in n8n (toggle in top-right)
-2. Run your Apify scraper task manually
-3. Wait for the webhook to fire
-4. Check StackWise dashboard for new tools in Queue
-
-## 8. Schedule Recurring Runs
+## 7. Schedule Recurring Runs
 
 In Apify Console, set up a schedule for your scraper task:
 - **Frequency:** Weekly (recommended)
-- **Day:** Sunday evening (good time to review new tools Monday morning)
+- **Day:** Sunday evening (review new tools Monday morning)
 
 The webhook fires automatically after each run, so the pipeline is fully hands-free.
 
@@ -131,31 +119,45 @@ The webhook fires automatically after each run, so the pipeline is fully hands-f
 Apify scrapes Instagram posts
   → Webhook triggers n8n
   → n8n fetches dataset results
-  → Switch routes by post type (image vs reel)
-  → Images → OCR.Space text extraction
-  → Reels → Download → Whisper transcription
-  → Merge results
-  → Claude extracts tool names from text
+  → IF routes by post type (image vs video)
+  → Images → OCR.Space text extraction → Normalize
+  → Videos → Download → Local Whisper transcription → Normalize
+  → OpenRouter (Claude Sonnet) extracts tool names
   → POST to StackWise /api/ingest
   → StackWise classifies tools against your registry
 ```
 
+## Architecture
+
+All nodes use `n8n-nodes-base` types only — no community or langchain nodes required.
+
+- **LLM**: OpenRouter API (OpenAI-compatible, supports Claude models)
+- **Transcription**: Local faster-whisper in Docker (no OpenAI key needed)
+- **OCR**: OCR.Space free tier
+- **Scraping**: Apify free tier ($5/month credits)
+
 ## Troubleshooting
+
+**`$env` access denied:**
+- Ensure `N8N_BLOCK_ENV_ACCESS_IN_NODE=false` is set when starting n8n
 
 **Webhook not receiving data:**
 - Ensure n8n workflow is activated (not just saved)
-- Check Apify webhook URL matches exactly
-- For local testing, use ngrok or similar to expose localhost
+- For test mode, click "Listen for Test Event" first — it only listens for one request
+- For production, Apify needs a public URL (use ngrok/cloudflared for local)
+
+**DelayedStream maxDataSize exceeded:**
+- Set `N8N_DEFAULT_BINARY_DATA_MODE=filesystem` when starting n8n
+- The Whisper node uses a Code node workaround to bypass the 2MB form-data stream limit
 
 **OCR returning empty text:**
 - Some Instagram images use custom fonts OCR can't read
-- The caption text is used as fallback
-- Try OCR Engine 2 or 3 for better results (modify the HTTP Request node)
+- The caption text is used as fallback in the Normalize Text node
 
 **Whisper failing:**
-- Verify OpenAI API key has billing enabled
-- Check the video URL is accessible (some expire quickly)
-- Instagram reel URLs may need to be fetched promptly after scraping
+- Verify Docker container is running: `docker ps --filter name=whisper`
+- Check health: `curl http://localhost:8000/health`
+- Instagram video URLs may expire — run the pipeline promptly after scraping
 
 **Tools not appearing in StackWise:**
 - Verify StackWise dev server is running on port 3000
