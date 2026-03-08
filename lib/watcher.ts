@@ -8,7 +8,7 @@ import { toolsRegistry, stackItems } from "./db/schema";
 import { classifyAndStore } from "./classify";
 import { fetchReadmeForPlugin } from "./github";
 import { getSetting } from "./settings";
-import { getProvider } from "./shared";
+import { CATEGORIES, getProvider } from "./shared";
 
 const pluginsJsonPath = path.join(
   os.homedir(),
@@ -167,7 +167,7 @@ function handleSkillAdd(filePath: string) {
     ensureTool(name, {
       status: "unclassified",
       source: "self_created",
-      category: "My Skills",
+      category: CATEGORIES[0],
     });
   } catch (err) {
     console.error("[watcher] failed to process SKILL.md add:", err);

@@ -49,8 +49,10 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     for (const [key, value] of Object.entries(body)) {
       if (key === "api_key" && typeof value === "string" && body.provider) {
-        // Store as per-provider key
+        // Store as per-provider key and clear legacy key to avoid confusion
         setSetting(`api_key:${body.provider}`, value);
+        const legacy = getSetting("api_key");
+        if (legacy) setSetting("api_key", "");
       } else if (ALLOWED_KEYS.includes(key) && typeof value === "string") {
         setSetting(key, value);
       }

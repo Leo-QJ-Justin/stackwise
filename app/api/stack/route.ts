@@ -32,6 +32,7 @@ export async function GET() {
 
     return NextResponse.json(items);
   } catch (error) {
+    console.error("[stack] Failed to fetch stack:", error);
     return NextResponse.json(
       { error: "Failed to fetch stack" },
       { status: 500 }
@@ -76,6 +77,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(stackItem[0], { status: 201 });
   } catch (error) {
+    console.error("[stack] Failed to add to stack:", error);
     return NextResponse.json(
       { error: "Failed to add to stack" },
       { status: 500 }
@@ -118,6 +120,7 @@ export async function PATCH(request: NextRequest) {
 
     return NextResponse.json(updated[0]);
   } catch (error) {
+    console.error("[stack] Failed to update notes:", error);
     return NextResponse.json(
       { error: "Failed to update notes" },
       { status: 500 }
@@ -158,6 +161,7 @@ export async function DELETE(request: NextRequest) {
 
     return NextResponse.json(deleted[0]);
   } catch (error) {
+    console.error("[stack] Failed to remove from stack:", error);
     return NextResponse.json(
       { error: "Failed to remove from stack" },
       { status: 500 }

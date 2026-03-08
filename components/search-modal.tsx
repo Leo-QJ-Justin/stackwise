@@ -51,6 +51,7 @@ export function SearchModal() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Tool[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -90,15 +91,17 @@ export function SearchModal() {
 
       if (!q.trim()) {
         setResults([]);
+        setError(false);
         setLoading(false);
         return;
       }
 
       setLoading(true);
+      setError(false);
       debounceRef.current = setTimeout(async () => {
         try {
           const res = await fetch("/api/tools");
-          if (!res.ok) throw new Error("fetch failed");
+          if (!res.ok) throw new Error(`fetch failed: ${res.status}`);
           const tools: Tool[] = await res.json();
 
           const lowerQ = q.toLowerCase();
@@ -117,8 +120,10 @@ export function SearchModal() {
 
           setResults(filtered);
           setSelectedIndex(0);
-        } catch {
+        } catch (err) {
+          console.error("[search] Search failed:", err);
           setResults([]);
+          setError(true);
         } finally {
           setLoading(false);
         }
@@ -253,7 +258,13 @@ export function SearchModal() {
                 </div>
               )}
 
-              {!loading && query.trim() && results.length === 0 && (
+              {!loading && error && (
+                <div className="px-4 py-8 text-center font-mono text-sm text-red-500">
+                  Search failed — try again
+                </div>
+              )}
+
+              {!loading && !error && query.trim() && results.length === 0 && (
                 <div className="px-4 py-8 text-center font-mono text-sm text-muted-foreground">
                   No results found for &ldquo;{query}&rdquo;
                 </div>

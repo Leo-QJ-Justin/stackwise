@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { parseProvides } from "@/lib/classify";
+import { CATEGORIES } from "@/lib/shared";
 
 export default async function ExportPage() {
   const rows = await db
@@ -19,16 +20,7 @@ export default async function ExportPage() {
     .innerJoin(toolsRegistry, eq(stackItems.toolId, toolsRegistry.id))
     .all();
 
-  const categories = [
-    "Development",
-    "Skills & File Handling",
-    "Integrations",
-    "Workflow & Agents",
-    "Prompting & Context",
-    "Research & Knowledge",
-    "UI & Frontend",
-    "My Skills",
-  ];
+  const categories = CATEGORIES;
 
   const grouped: Record<string, typeof rows> = {};
   for (const cat of categories) {

@@ -52,15 +52,15 @@ export async function GET() {
       (cat) => (categoryCoverage[cat] ?? 0) === 0
     );
 
-    // Most recent lastUpdated across all tools
-    const lastScanRow = db
+    // Most recent tool update time (used as proxy for last activity)
+    const lastUpdateRow = db
       .select({ lastUpdated: toolsRegistry.lastUpdated })
       .from(toolsRegistry)
       .orderBy(sql`${toolsRegistry.lastUpdated} desc`)
       .limit(1)
       .get();
 
-    const lastScanTime = lastScanRow?.lastUpdated ?? null;
+    const lastScanTime = lastUpdateRow?.lastUpdated ?? null;
 
     return NextResponse.json({
       activeTools,
