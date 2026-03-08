@@ -61,6 +61,7 @@ export async function POST(request: NextRequest) {
   let classified = 0;
   let duplicates = 0;
   let skipped = 0;
+  let linked = false;
   const results: Array<{ tool: string; status: string }> = [];
 
   for (const toolName of tools) {
@@ -100,11 +101,12 @@ export async function POST(request: NextRequest) {
         .run();
 
       // Link content to first matched tool
-      if (!content.mappedToToolId) {
+      if (!linked) {
         db.update(ingestedContent)
           .set({ mappedToToolId: existingTool.id })
           .where(eq(ingestedContent.id, content.id))
           .run();
+        linked = true;
       }
 
       duplicates++;

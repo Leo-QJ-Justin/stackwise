@@ -64,7 +64,7 @@ export function TopBar({ onScanComplete }: TopBarProps) {
         buffer = lines.pop() ?? "";
 
         for (const line of lines) {
-          const match = line.match(/^data: (.+)$/);
+          const match = line.match(/^data:\s*(.+)$/);
           if (!match) continue;
 
           try {

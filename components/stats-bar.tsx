@@ -35,16 +35,22 @@ function relativeTime(iso: string): string {
 export function StatsBar({ refreshKey = 0 }: { refreshKey?: number }) {
   const [stats, setStats] = useState<StatsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   const fetchStats = useCallback(async () => {
     setLoading(true);
+    setError(false);
     try {
       const res = await fetch("/api/stats");
       if (res.ok) {
         setStats(await res.json());
+      } else {
+        console.error("[stats-bar] Failed to fetch stats:", res.status);
+        setError(true);
       }
-    } catch {
-      // silently ignore fetch errors
+    } catch (err) {
+      console.error("[stats-bar] Stats request failed:", err);
+      setError(true);
     } finally {
       setLoading(false);
     }
@@ -74,6 +80,13 @@ export function StatsBar({ refreshKey = 0 }: { refreshKey?: number }) {
             <Skeleton />
             <Skeleton />
           </>
+        ) : error ? (
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="size-3.5 text-red-500" />
+            <span className="font-mono text-[11px] text-red-500">
+              Failed to load stats
+            </span>
+          </div>
         ) : stats ? (
           <>
             {/* Active tools */}
@@ -155,13 +168,13 @@ export function StatsBar({ refreshKey = 0 }: { refreshKey?: number }) {
               </span>
             </div>
 
-            {/* Last scan time */}
+            {/* Last update time */}
             <div className="ml-auto flex items-center gap-2 transition-all duration-200">
               <Clock className="size-3.5 text-muted-foreground" />
               <span className="font-mono text-[11px] text-muted-foreground">
                 {stats.lastScanTime
                   ? relativeTime(stats.lastScanTime)
-                  : "no scans"}
+                  : "no activity"}
               </span>
             </div>
           </>

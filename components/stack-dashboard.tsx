@@ -309,14 +309,21 @@ export function StackDashboard({ refreshKey = 0 }: { refreshKey?: number }) {
   );
 
   const loadData = useCallback(async () => {
-    const [stackRes, suggestedRes, evaluatedRes] = await Promise.all([
-      fetch("/api/stack"),
-      fetch("/api/tools?status=queue"),
-      fetch("/api/tools?status=evaluated_rejected"),
-    ]);
-    if (stackRes.ok) setStackItems(await stackRes.json());
-    if (suggestedRes.ok) setSuggested(await suggestedRes.json());
-    if (evaluatedRes.ok) setEvaluated(await evaluatedRes.json());
+    try {
+      const [stackRes, suggestedRes, evaluatedRes] = await Promise.all([
+        fetch("/api/stack"),
+        fetch("/api/tools?status=queue"),
+        fetch("/api/tools?status=evaluated_rejected"),
+      ]);
+      if (stackRes.ok) setStackItems(await stackRes.json());
+      else console.error("[dashboard] Failed to load stack:", stackRes.status);
+      if (suggestedRes.ok) setSuggested(await suggestedRes.json());
+      else console.error("[dashboard] Failed to load suggestions:", suggestedRes.status);
+      if (evaluatedRes.ok) setEvaluated(await evaluatedRes.json());
+      else console.error("[dashboard] Failed to load evaluated:", evaluatedRes.status);
+    } catch (err) {
+      console.error("[dashboard] Failed to load data:", err);
+    }
   }, []);
 
   useEffect(() => {
@@ -333,62 +340,95 @@ export function StackDashboard({ refreshKey = 0 }: { refreshKey?: number }) {
   };
 
   const handleAccept = async (id: number) => {
-    await fetch("/api/stack", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ toolId: id }),
-    });
+    try {
+      const res = await fetch("/api/stack", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ toolId: id }),
+      });
+      if (!res.ok) console.error("[dashboard] Accept failed:", res.status);
+    } catch (err) {
+      console.error("[dashboard] Accept request failed:", err);
+    }
     loadData();
   };
 
   const handleSwap = async (oldToolId: number, newToolId: number) => {
-    await fetch("/api/swap", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ oldToolId, newToolId }),
-    });
+    try {
+      const res = await fetch("/api/swap", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ oldToolId, newToolId }),
+      });
+      if (!res.ok) console.error("[dashboard] Swap failed:", res.status);
+    } catch (err) {
+      console.error("[dashboard] Swap request failed:", err);
+    }
     loadData();
   };
 
   const handleSkip = async (id: number) => {
-    await fetch("/api/tools", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id, status: "evaluated_rejected" }),
-    });
+    try {
+      const res = await fetch("/api/tools", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, status: "evaluated_rejected" }),
+      });
+      if (!res.ok) console.error("[dashboard] Skip failed:", res.status);
+    } catch (err) {
+      console.error("[dashboard] Skip request failed:", err);
+    }
     loadData();
   };
 
   const handleRemove = async (toolId: number) => {
-    await fetch("/api/stack", {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ toolId }),
-    });
+    try {
+      const res = await fetch("/api/stack", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ toolId }),
+      });
+      if (!res.ok) console.error("[dashboard] Remove failed:", res.status);
+    } catch (err) {
+      console.error("[dashboard] Remove request failed:", err);
+    }
     loadData();
   };
 
   const handleUpdateNotes = async (toolId: number, notes: string) => {
-    const res = await fetch("/api/stack", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ toolId, notes }),
-    });
-    if (res.ok) {
-      setStackItems((prev) =>
-        prev.map((item) =>
-          item.toolId === toolId ? { ...item, notes: notes || null } : item
-        )
-      );
+    try {
+      const res = await fetch("/api/stack", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ toolId, notes }),
+      });
+      if (res.ok) {
+        setStackItems((prev) =>
+          prev.map((item) =>
+            item.toolId === toolId ? { ...item, notes: notes || null } : item
+          )
+        );
+      } else {
+        console.error("[dashboard] Save note failed:", res.status);
+        loadData();
+      }
+    } catch (err) {
+      console.error("[dashboard] Save note request failed:", err);
+      loadData();
     }
   };
 
   const handleRecategorize = async (toolId: number, newCategory: string) => {
-    await fetch("/api/tools", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: toolId, category: newCategory }),
-    });
+    try {
+      const res = await fetch("/api/tools", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: toolId, category: newCategory }),
+      });
+      if (!res.ok) console.error("[dashboard] Recategorize failed:", res.status);
+    } catch (err) {
+      console.error("[dashboard] Recategorize request failed:", err);
+    }
     loadData();
   };
 
