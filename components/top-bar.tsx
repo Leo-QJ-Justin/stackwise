@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { RefreshCw, Download, Settings, History } from "lucide-react";
+import { SearchModal } from "@/components/search-modal";
 
 interface TopBarProps {
   onScanComplete?: () => void;
@@ -110,6 +111,7 @@ export function TopBar({ onScanComplete }: TopBarProps) {
         </div>
 
         <div className="flex items-center gap-1.5">
+          <SearchModal />
           {!scanning && unclassifiedCount > 0 && (
             <span className="font-mono text-[11px] text-amber-500">
               {unclassifiedCount} tool{unclassifiedCount !== 1 ? "s" : ""} need classification
