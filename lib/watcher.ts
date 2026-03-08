@@ -2,7 +2,7 @@ import chokidar, { type FSWatcher } from "chokidar";
 import fs from "fs";
 import os from "os";
 import path from "path";
-import { sql } from "drizzle-orm";
+import { sql, eq } from "drizzle-orm";
 import { db } from "./db";
 import { toolsRegistry, stackItems } from "./db/schema";
 import { classifyAndStore } from "./classify";
@@ -123,6 +123,33 @@ async function handlePluginsChange(filePath: string) {
           source: "installed",
           category: "Development",
         });
+      }
+    }
+
+    // Detect uninstalled plugins: find installed tools not in current plugin list
+    const currentPluginNames = new Set(
+      pluginKeys.map((key) => formatName(key))
+    );
+
+    const installedTools = db
+      .select()
+      .from(toolsRegistry)
+      .where(sql`${toolsRegistry.source} = 'installed' AND ${toolsRegistry.status} = 'active'`)
+      .all();
+
+    for (const tool of installedTools) {
+      if (!currentPluginNames.has(tool.name)) {
+        // Plugin was uninstalled — archive it and remove from stack
+        db.update(toolsRegistry)
+          .set({ status: "archived", lastUpdated: sql`(CURRENT_TIMESTAMP)` })
+          .where(eq(toolsRegistry.id, tool.id))
+          .run();
+
+        db.delete(stackItems)
+          .where(eq(stackItems.toolId, tool.id))
+          .run();
+
+        console.log(`[watcher] archived uninstalled plugin: "${tool.name}"`);
       }
     }
   } catch (err) {

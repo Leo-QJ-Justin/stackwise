@@ -101,6 +101,15 @@ export function StackDashboard({ refreshKey = 0 }: { refreshKey?: number }) {
     loadData();
   };
 
+  const handleRemove = async (toolId: number) => {
+    await fetch("/api/stack", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ toolId }),
+    });
+    loadData();
+  };
+
   // Build a map: stackToolId -> replacement suggestions
   const replacementMap = new Map<number, ToolData[]>();
   const pureSuggestions: ToolData[] = [];
@@ -226,28 +235,39 @@ export function StackDashboard({ refreshKey = 0 }: { refreshKey?: number }) {
                       className="grid grid-cols-2 min-h-[44px]"
                     >
                       {/* Left: stack tool */}
-                      <div className="px-4 py-1">
-                        <Link
-                          href={`/tools/${item.tool.id}`}
-                          className="group flex items-start gap-3 rounded-md px-3 py-2 transition-colors hover:bg-muted/50 cursor-pointer"
-                        >
-                          <div className="h-1.5 w-1.5 mt-[7px] shrink-0 rounded-full bg-primary/60" />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="font-mono text-[13px] font-medium group-hover:text-primary transition-colors">
-                                {item.tool.name}
-                              </span>
-                              {item.tool.provides && (
-                                <ProvidesHint provides={item.tool.provides} />
+                      <div className="group/tool px-4 py-1">
+                        <div className="flex items-center gap-1">
+                          <Link
+                            href={`/tools/${item.tool.id}`}
+                            className="group flex flex-1 items-start gap-3 rounded-md px-3 py-2 transition-colors hover:bg-muted/50 cursor-pointer"
+                          >
+                            <div className="h-1.5 w-1.5 mt-[7px] shrink-0 rounded-full bg-primary/60" />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono text-[13px] font-medium group-hover:text-primary transition-colors">
+                                  {item.tool.name}
+                                </span>
+                                {item.tool.provides && (
+                                  <ProvidesHint provides={item.tool.provides} />
+                                )}
+                              </div>
+                              {item.tool.description && (
+                                <p className="mt-0.5 text-xs text-muted-foreground/80 leading-relaxed truncate">
+                                  {item.tool.description}
+                                </p>
                               )}
                             </div>
-                            {item.tool.description && (
-                              <p className="mt-0.5 text-xs text-muted-foreground/80 leading-relaxed truncate">
-                                {item.tool.description}
-                              </p>
-                            )}
-                          </div>
-                        </Link>
+                          </Link>
+                          <Button
+                            size="xs"
+                            variant="ghost"
+                            className="cursor-pointer text-muted-foreground opacity-0 group-hover/tool:opacity-100 transition-opacity shrink-0"
+                            onClick={() => handleRemove(item.tool.id)}
+                            title="Remove from stack"
+                          >
+                            <X className="size-3" />
+                          </Button>
+                        </div>
                       </div>
 
                       {/* Right: replacement suggestion(s) aligned to this tool */}

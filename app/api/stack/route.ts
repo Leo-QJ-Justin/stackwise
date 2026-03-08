@@ -108,6 +108,12 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
+    // Archive the tool so it doesn't reappear as active
+    await db
+      .update(toolsRegistry)
+      .set({ status: "archived", lastUpdated: sql`(CURRENT_TIMESTAMP)` })
+      .where(eq(toolsRegistry.id, toolId));
+
     return NextResponse.json(deleted[0]);
   } catch (error) {
     return NextResponse.json(
