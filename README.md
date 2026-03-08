@@ -1,156 +1,155 @@
 # StackWise
 
-A local intelligence system for Claude Code power users. Tracks, evaluates, and optimises your productivity stack — plugins, skills, frameworks, and workflows — so you always know what you have, why you have it, and what you're missing.
+**Know your stack. Own your edge.**
 
-## Why
+The Claude Code ecosystem ships new plugins, MCP servers, and skills every week. Most power users can't tell you what's in their stack, what overlaps, or what gaps they're ignoring. That asymmetry is the difference between someone who uses Claude Code and someone who *dominates* with it.
 
-The Claude ecosystem is growing fast. Plugins and skills get released weekly, creators cover the same tools repeatedly, and there's no way to diff new suggestions against what you already use. StackWise solves this by maintaining a growing registry that classifies every tool against your existing setup — getting cheaper and faster over time as the registry grows.
+StackWise is a local intelligence layer that continuously tracks, classifies, and optimizes your entire Claude Code tooling setup — so you always know exactly what you have, what you're missing, and what to drop.
+
+## The Problem
+
+- A new MCP server drops — is it better than what you already have?
+- You installed five plugins last month — do any of them overlap?
+- A creator demos a skill on social media — does it fill a gap or just duplicate something?
+- You can't export "what I use and why" to share with your team or seed a new machine.
+
+Without a system, you're guessing. StackWise makes it measurable.
 
 ## How It Works
 
-StackWise uses a two-step classification pipeline that separates **discovery** (what is this tool?) from **comparison** (how does it fit my stack?):
+Every tool that enters your ecosystem — whether you installed it, scanned it, or it was flagged by an automation pipeline — goes through a two-step LLM classification:
 
 ```
-Tool arrives (pipeline, scan, or file watcher)
-    |
-    v
-Registry dedup check (case-insensitive, hyphen-normalized)
-    |--- Already known -------> return existing (ingest also bumps mention count)
-    |--- Unknown -------------> two-step classification:
-                                   |
-                                   v
-                              Step 1: DISCOVERY (LLM call)
-                              → name, category, description, capabilities
-                                   |
-                                   v
-                              Step 2: COMPARISON (LLM call)
-                              → verdict: NEW | DUPLICATE | ALTERNATIVE | UNRELATED
-                              → mapsTo, confidence, reasoning
-                              (non-fatal — tool keeps metadata if this fails)
-                                   |
-                                   v
-                              Route based on source + verdict:
-                              ├─ Installed (forceActive) → always "active", log overlaps
-                              └─ Community → queue (NEW/ALT) or rejected (DUP/UNRELATED)
+Tool arrives (scan, watcher, or automation pipeline)
+  │
+  ├─ Registry hit ──────> Already known → skip (instant, free)
+  │
+  └─ Unknown ───────────> Step 1: DISCOVERY
+                          → category, description, capabilities
+                            │
+                            v
+                          Step 2: COMPARISON against your active stack
+                          → NEW | DUPLICATE | ALTERNATIVE | UNRELATED
+                          → confidence score + reasoning
+                            │
+                            v
+                          Route: active / queue / rejected
 ```
 
-### Three entry points, one pipeline
+The registry acts as a cache. As it grows, fewer LLM calls are needed — classification gets cheaper and faster over time.
 
-| Route | Source | Trigger |
-|-------|--------|---------|
-| `/api/scan` | Installed plugins + unclassified | Manual scan button or auto-scan on first load |
-| `/api/ingest` | n8n automation | Instagram/social media pipeline POSTs tool mentions |
-| `lib/watcher.ts` | File system | chokidar watches `~/.claude/plugins/` and `~/.claude/skills/` |
+### Entry Points
 
-New tools go through `classifyAndStore()` which runs both steps internally. The scan also reclassifies existing tools missing metadata via direct `classifyToolMetadata()` + `compareToStack()` calls. The LLM is only called for genuinely unknown or unclassified tools — the registry acts as a cache.
+| Source | What It Scans | Trigger |
+|--------|--------------|---------|
+| **Plugin scanner** | `~/.claude/plugins/installed_plugins.json` | Manual scan or auto on load |
+| **MCP scanner** | `~/.claude/.mcp.json` (global config) | Manual scan or auto on load |
+| **File watcher** | `~/.claude/plugins/` and `~/.claude/skills/` | Real-time on file change |
+| **Ingest API** | Social media pipeline (n8n) | Automation POSTs tool mentions |
 
 ## Features
 
-- **Five views**: My Stack, My Skills, Queue, Evaluated, Duplicates Log
-- **8 category taxonomy**: Development, Skills & File Handling, Integrations, Workflow & Agents, Prompting & Context, Research & Knowledge, UI & Frontend, My Skills
-- **Auto-detection**: File watcher monitors `~/.claude/plugins/` and `~/.claude/skills/` for changes
-- **Multi-provider classification**: Claude CLI, Ollama, Anthropic, OpenAI, Google Gemini, Mistral, Amazon Bedrock, OpenRouter
-- **Two-step classification**: Discovery (metadata extraction) and comparison (stack verdict) as separate LLM calls — comparison failure is non-fatal
-- **Duplicate detection**: Case-insensitive, hyphen-normalized matching prevents duplicate entries
-- **Stack export**: Export your curated stack as markdown context for any Claude conversation
-- **Swap tracking**: Replace tools and keep a record of what changed and why
+### Dashboard
+- **At-a-glance stats** — active tools, pending queue, swaps, coverage gaps
+- **List & Bento grid views** — toggle between dense list and category-grouped tiles
+- **7-category taxonomy** — Development, Skills & File Handling, Integrations, Workflow & Agents, Prompting & Context, Research & Knowledge, UI & Frontend
+- **Gap analysis** — instantly see which categories have zero coverage
+- **Cmd+K search** — fuzzy search across your entire registry with keyboard navigation
+- **Inline notes** — annotate any stack tool with context on why you keep it
 
-## Tech Stack
+### Intelligence
+- **Two-step classification** — discovery (what is this?) and comparison (how does it fit?) as independent LLM calls
+- **Duplicate detection** — case-insensitive, hyphen-normalized matching prevents duplicates
+- **Stack verdicts** — every tool gets a reasoned verdict: NEW, DUPLICATE, ALTERNATIVE, or UNRELATED
+- **Multi-provider** — Claude CLI, Ollama (local), Anthropic, OpenAI, Gemini, Mistral, Bedrock, OpenRouter
 
-| Layer | Technology |
-|-------|-----------|
-| Framework | Next.js 16 (App Router) |
-| Database | SQLite via Drizzle ORM + better-sqlite3 |
-| UI | Tailwind CSS + shadcn/ui |
-| LLM | Vercel AI SDK (`generateObject` with Zod schemas) |
-| File watching | chokidar |
+### Stack Management
+- **Drag-and-drop recategorization** — move tools between categories
+- **Swap tracking** — replace tools with a full audit trail (what changed and why)
+- **History timeline** — unified chronological view of every tool, swap, and classification decision
+- **Stack export** — export your curated stack as markdown context for any Claude conversation
 
-## Getting Started
-
-### Prerequisites
-
-- Node.js >= 20.9.0 (recommend Node 22 via nvm)
-- npm or bun for package management
-
-### Setup
+## Quick Start
 
 ```bash
 # Clone and install
 git clone https://github.com/Leo-QJ-Justin/stackwise.git
 cd stackwise
-npm install
+bun install
 
-# Create database schema
+# Set up the database
 npx drizzle-kit push
-
-# Seed with starter tools
 npx tsx lib/db/seed.ts
 
-# Start dev server
-npm run dev
+# Start
+bun run dev
 ```
 
-The app runs at `http://localhost:3000`.
+Open `http://localhost:3000`. Go to **Settings** to configure your LLM provider — local options (Claude CLI, Ollama) need no API key.
 
-### Configure a Provider
+Or use the dev script:
 
-Go to **Settings** and select an LLM provider for tool classification. Local options (Claude CLI, Ollama) need no API key. Cloud providers require a key.
+```bash
+./dev.sh setup   # Install deps + init DB
+./dev.sh start   # Start dev server
+./dev.sh auto    # Setup + start in one command
+```
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Framework | Next.js 16 (App Router, server + client components) |
+| Database | SQLite via Drizzle ORM + better-sqlite3 |
+| UI | Tailwind CSS + shadcn/ui + @dnd-kit |
+| LLM | Vercel AI SDK (`generateObject` with Zod schemas) |
+| File watching | chokidar |
 
 ## Project Structure
 
 ```
 stackwise/
 ├── app/                    Next.js pages and API routes
-│   ├── api/                REST endpoints (stack, tools, classify, settings, etc.)
-│   ├── settings/           Provider configuration page
+│   ├── api/                REST endpoints (scan, stack, tools, stats, settings, ingest)
+│   ├── settings/           Provider configuration
+│   ├── history/            Timeline view
 │   ├── tools/[id]/         Tool detail page
-│   └── export/             Stack export page
-├── components/             React components (dashboard, notifications, top bar)
+│   └── export/             Stack export
+├── components/             Dashboard, search modal, stats bar, notifications
 ├── lib/
-│   ├── db/                 Drizzle schema and seed data
-│   ├── classify.ts         LLM classification engine
+│   ├── db/                 Drizzle schema, seed data, migrations
+│   ├── classify.ts         Two-step LLM classification engine
 │   ├── providers.ts        Multi-provider model factory
-│   ├── shared.ts           Shared constants (categories, provider config)
-│   ├── watcher.ts          File system watcher for auto-detection
-│   ├── github.ts           README fetching for URL-based submissions
+│   ├── shared.ts           Categories, provider configs, shared types
+│   ├── watcher.ts          File system watcher (chokidar)
+│   ├── github.ts           README fetcher for plugin metadata
 │   └── settings.ts         Settings helpers
-├── automation/
-│   ├── workflow.json       Tested n8n workflow for Instagram monitoring
-│   └── SETUP.md            Automation setup guide
-├── db/
-│   └── stack.db            SQLite database (created on setup)
-└── docs/
-    └── plans/              Design docs and implementation plans
+├── automation/             n8n workflow + Docker Compose for social monitoring
+├── tests/                  API and data flow test suites
+└── dev.sh                  Unified dev script (setup/start/test/stop)
 ```
-
-## Data Model
-
-- **tools_registry** — Every tool ever seen: name, category, status, verdict reasoning, capabilities
-- **stack_items** — Your active stack (references tools_registry)
-- **ingested_content** — Raw pipeline output from n8n (source URL, text, verdicts)
-- **duplicates_log** — Audit trail of every filtered tool and why
-- **settings** — Provider, API key, model preferences, watchlist
 
 ## Automation (Optional)
 
-StackWise includes a bundled n8n workflow that monitors Instagram creators for Claude Code tool mentions. The pipeline:
+StackWise ships with a Dockerized n8n workflow that monitors social media for Claude Code tool mentions:
 
-1. Apify scrapes Instagram posts on a schedule
-2. n8n routes images to OCR.Space and reels to Whisper for text extraction
-3. Claude extracts tool names from the extracted text
-4. Results are POSTed to StackWise `/api/ingest` for classification
+1. Apify scrapes posts on a schedule
+2. n8n routes media to OCR / Whisper for text extraction
+3. Claude extracts tool names from the text
+4. Results POST to `/api/ingest` for automatic classification
 
-See [`automation/SETUP.md`](automation/SETUP.md) for setup instructions.
+See [automation/SETUP.md](automation/SETUP.md) for details.
 
-## Build Order
+## Roadmap
 
 | Phase | Status | Description |
 |-------|--------|-------------|
-| 1. App Scaffold | Done | Dashboard, schema, API routes, file watcher |
-| 2. Intelligence Layer | Done | LLM classification, verdicts, multi-provider support |
-| 3. Desktop Packaging | Planned | Tauri wrapper for native app distribution |
-| 4. Automation Bundle | Done | n8n workflow for hands-free Instagram monitoring |
-| 5. Refinement | Planned | Confidence tuning, gap analysis, onboarding polish |
+| App scaffold | Done | Dashboard, schema, API routes, file watcher |
+| Intelligence layer | Done | Two-step LLM classification, multi-provider, verdicts |
+| Dashboard overhaul | Done | Stats bar, bento grid, gap analysis, Cmd+K search, timeline |
+| Automation bundle | Done | n8n + Docker for social monitoring pipeline |
+| Desktop packaging | Planned | Tauri wrapper for native distribution |
+| Confidence tuning | Planned | Self-improving classification accuracy over time |
 
 ## License
 

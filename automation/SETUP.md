@@ -4,7 +4,7 @@ This n8n workflow monitors Instagram creators for Claude Code tool mentions, ext
 
 ## Prerequisites
 
-- StackWise running locally (`npm run dev` on port 3000)
+- StackWise running locally (`bun run dev` or `./dev.sh start` on port 3000)
 - Docker & Docker Compose
 - API keys for: Apify, OCR.Space, OpenRouter
 
