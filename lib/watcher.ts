@@ -117,7 +117,7 @@ async function handlePluginsChange(filePath: string) {
           });
         }
       } else {
-        // No API key — basic insert
+        // No API key — basic insert. Will be classified when API key is added and scan is run.
         ensureTool(name, {
           status: "active",
           source: "installed",

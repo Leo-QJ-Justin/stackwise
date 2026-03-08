@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { toolsRegistry, stackItems } from "@/lib/db/schema";
-import { eq, ne, sql, isNull, and } from "drizzle-orm";
-import { classifyAndStore, classifyTool } from "@/lib/classify";
+import { eq, sql, isNull, and } from "drizzle-orm";
+import { classifyAndStore, classifyToolMetadata, compareToStack, type StackVerdict } from "@/lib/classify";
 import { fetchReadmeForPlugin } from "@/lib/github";
 import fs from "fs";
 import path from "path";
@@ -23,8 +23,7 @@ export async function GET() {
     .from(toolsRegistry)
     .where(and(
       eq(toolsRegistry.status, "active"),
-      isNull(toolsRegistry.verdictReason),
-      ne(toolsRegistry.source, "installed"),
+      isNull(toolsRegistry.description),
     ))
     .get();
 
@@ -93,14 +92,13 @@ export async function POST() {
           }
         }
 
-        // 2. Classify tools that were inserted without classification (skips installed plugins)
+        // 2. Classify any active tools missing metadata (source-agnostic)
         const unclassified = db
           .select()
           .from(toolsRegistry)
           .where(and(
             eq(toolsRegistry.status, "active"),
-            isNull(toolsRegistry.verdictReason),
-            ne(toolsRegistry.source, "installed"),
+            isNull(toolsRegistry.description),
           ))
           .all();
 
@@ -128,26 +126,38 @@ export async function POST() {
           }
 
           try {
-            const verdict = await classifyTool({
+            // Step 1: Discover
+            const meta = await classifyToolMetadata({
               name: tool.name,
               readmeContent: readme ?? undefined,
             });
 
-            if (verdict) {
-              db.update(toolsRegistry)
-                .set({
-                  category: verdict.category,
-                  description: verdict.description,
-                  provides: verdict.provides ? JSON.stringify(verdict.provides) : null,
-                  verdictReason: verdict.reasoning,
-                  lastUpdated: sql`(CURRENT_TIMESTAMP)`,
-                })
-                .where(eq(toolsRegistry.id, tool.id))
-                .run();
-
-              classifiedCount++;
-              send({ type: "classified", name: tool.name, category: verdict.category });
+            // Step 2: Compare
+            let verdict: StackVerdict | null = null;
+            try {
+              verdict = await compareToStack({
+                name: tool.name,
+                category: meta.category,
+                description: meta.description,
+                provides: meta.provides,
+              });
+            } catch (cmpErr) {
+              console.warn(`[scan] stack comparison failed for "${tool.name}":`, cmpErr);
             }
+
+            db.update(toolsRegistry)
+              .set({
+                category: meta.category,
+                description: meta.description,
+                provides: JSON.stringify(meta.provides),
+                verdictReason: verdict?.reasoning ?? "Metadata classified (no stack comparison)",
+                lastUpdated: sql`(CURRENT_TIMESTAMP)`,
+              })
+              .where(eq(toolsRegistry.id, tool.id))
+              .run();
+
+            classifiedCount++;
+            send({ type: "classified", name: tool.name, category: meta.category });
           } catch (err) {
             console.error(`[scan] reclassification failed for "${tool.name}":`, err);
             send({ type: "error", name: tool.name, error: String(err instanceof Error ? err.message : err) });
