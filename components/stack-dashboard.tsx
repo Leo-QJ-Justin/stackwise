@@ -512,15 +512,6 @@ export function StackDashboard({ refreshKey = 0 }: { refreshKey?: number }) {
                   evaluatedReplacementMap.has(s.tool.id)
               );
 
-              const hasContent =
-                activeDrag !== null ||
-                catStack.length > 0 ||
-                catPureSuggestions.length > 0 ||
-                catPureEvaluated.length > 0 ||
-                catHasReplacements;
-
-              if (!hasContent) return null;
-
               const isExpanded = expandedCats.has(cat);
               const suggestionCount =
                 catPureSuggestions.length +
