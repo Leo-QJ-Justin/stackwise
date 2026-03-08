@@ -6,7 +6,6 @@ export const CATEGORY_DEFINITIONS = {
   "Prompting & Context": "Tools that manage LLM context, memory, prompt engineering, documentation retrieval, or knowledge injection.",
   "Research & Knowledge": "Information gathering: web search, documentation lookup, data analysis, content summarization.",
   "UI & Frontend": "Frontend design systems, component libraries, CSS tools, visual design, accessibility auditing.",
-  "My Skills": "User-created custom skills (local SKILL.md files). Never classify installed plugins into this category.",
 } as const;
 
 export const CATEGORIES = Object.keys(CATEGORY_DEFINITIONS) as unknown as readonly [string, ...string[]];

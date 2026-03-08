@@ -47,7 +47,6 @@ const CATEGORY_BORDER_COLOR: Record<string, string> = {
   "Prompting & Context": "border-l-rose-500",
   "Research & Knowledge": "border-l-cyan-500",
   "UI & Frontend": "border-l-pink-500",
-  "My Skills": "border-l-orange-500",
 };
 
 const CATEGORY_TOP_COLOR: Record<string, string> = {
@@ -58,7 +57,6 @@ const CATEGORY_TOP_COLOR: Record<string, string> = {
   "Prompting & Context": "border-t-rose-500",
   "Research & Knowledge": "border-t-cyan-500",
   "UI & Frontend": "border-t-pink-500",
-  "My Skills": "border-t-orange-500",
 };
 
 const CATEGORY_DOT_COLOR: Record<string, string> = {
@@ -69,7 +67,6 @@ const CATEGORY_DOT_COLOR: Record<string, string> = {
   "Prompting & Context": "bg-rose-500",
   "Research & Knowledge": "bg-cyan-500",
   "UI & Frontend": "bg-pink-500",
-  "My Skills": "bg-orange-500",
 };
 
 interface StackItem {
