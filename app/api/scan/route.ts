@@ -142,7 +142,12 @@ export async function POST() {
                 provides: meta.provides,
               });
             } catch (cmpErr) {
+              const msg = cmpErr instanceof Error ? cmpErr.message : String(cmpErr);
+              if (msg.includes("SQLITE") || msg.includes("Unknown provider") || msg.includes("No API key configured")) {
+                throw cmpErr;
+              }
               console.warn(`[scan] stack comparison failed for "${tool.name}":`, cmpErr);
+              send({ type: "warning", name: tool.name, warning: `Stack comparison failed: ${msg}` });
             }
 
             db.update(toolsRegistry)
