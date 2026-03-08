@@ -4,7 +4,7 @@ import os from "os";
 import path from "path";
 import { sql } from "drizzle-orm";
 import { db } from "./db";
-import { toolsRegistry } from "./db/schema";
+import { toolsRegistry, stackItems } from "./db/schema";
 import { classifyAndStore } from "./classify";
 import { fetchReadmeForPlugin } from "./github";
 import { getSetting } from "./settings";
@@ -48,14 +48,19 @@ function ensureTool(
 
   if (existing) return;
 
-  db.insert(toolsRegistry)
+  const [tool] = db.insert(toolsRegistry)
     .values({
       name,
       status: opts.status,
       source: opts.source,
       category: opts.category,
     })
-    .run();
+    .returning()
+    .all();
+
+  if (opts.status === "active") {
+    db.insert(stackItems).values({ toolId: tool.id }).run();
+  }
 
   console.log(`[watcher] inserted tool: "${name}" (${opts.source})`);
 }
