@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { toolsRegistry, stackItems } from "@/lib/db/schema";
-import { eq, sql, isNull, and } from "drizzle-orm";
+import { eq, ne, sql, isNull, and } from "drizzle-orm";
 import { classifyAndStore, classifyTool } from "@/lib/classify";
 import { fetchReadmeForPlugin } from "@/lib/github";
 import fs from "fs";
@@ -21,7 +21,11 @@ export async function GET() {
   const row = db
     .select({ count: sql<number>`count(*)` })
     .from(toolsRegistry)
-    .where(and(eq(toolsRegistry.status, "active"), isNull(toolsRegistry.verdictReason)))
+    .where(and(
+      eq(toolsRegistry.status, "active"),
+      isNull(toolsRegistry.verdictReason),
+      ne(toolsRegistry.source, "installed"),
+    ))
     .get();
 
   return NextResponse.json({ unclassifiedCount: row?.count ?? 0 });
@@ -43,7 +47,7 @@ export async function POST() {
       let insertedCount = 0;
 
       try {
-        // 1. Scan installed_plugins.json for any new plugins
+        // 1. Scan installed_plugins.json — classify and insert any new plugins as active
         if (fs.existsSync(pluginsPath)) {
           try {
             const raw = fs.readFileSync(pluginsPath, "utf-8");
@@ -74,25 +78,30 @@ export async function POST() {
                   const [tool] = db.insert(toolsRegistry).values({
                     name,
                     status: "active",
-                    source: "community",
+                    source: "installed",
                     category: "Development",
                   }).returning().all();
                   db.insert(stackItems).values({ toolId: tool.id }).run();
                   insertedCount++;
-                  send({ type: "fallback", name });
+                  send({ type: "fallback", name, reason: err instanceof Error ? err.message : String(err) });
                 }
               }
             }
-          } catch {
-            // Ignore malformed JSON
+          } catch (parseErr) {
+            console.error("[scan] Failed to parse installed_plugins.json:", parseErr);
+            send({ type: "error", error: `Failed to parse plugins file: ${parseErr instanceof Error ? parseErr.message : String(parseErr)}` });
           }
         }
 
-        // 2. Reclassify existing tools that have no verdictReason (weren't classified)
+        // 2. Classify tools that were inserted without classification (skips installed plugins)
         const unclassified = db
           .select()
           .from(toolsRegistry)
-          .where(and(eq(toolsRegistry.status, "active"), isNull(toolsRegistry.verdictReason)))
+          .where(and(
+            eq(toolsRegistry.status, "active"),
+            isNull(toolsRegistry.verdictReason),
+            ne(toolsRegistry.source, "installed"),
+          ))
           .all();
 
         send({ type: "phase", phase: "reclassify", total: unclassified.length });
@@ -113,8 +122,8 @@ export async function POST() {
                   break;
                 }
               }
-            } catch {
-              // ignore
+            } catch (readmeErr) {
+              console.warn(`[scan] Failed to read plugins file for README lookup of "${tool.name}":`, readmeErr);
             }
           }
 
@@ -152,7 +161,7 @@ export async function POST() {
         });
       } catch (error) {
         console.error("[scan] error:", error);
-        send({ type: "error", error: "Scan failed" });
+        send({ type: "error", error: `Scan failed: ${error instanceof Error ? error.message : String(error)}` });
       } finally {
         controller.close();
       }

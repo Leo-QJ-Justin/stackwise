@@ -15,6 +15,9 @@ export default function SettingsPage() {
   const [apiKeyChanged, setApiKeyChanged] = useState(false);
   const [model, setModel] = useState("");
   const [searchModel, setSearchModel] = useState("");
+  const [githubToken, setGithubToken] = useState("");
+  const [githubTokenMask, setGithubTokenMask] = useState("");
+  const [githubTokenChanged, setGithubTokenChanged] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -28,6 +31,9 @@ export default function SettingsPage() {
         setProvider(data.provider ?? "openrouter");
         setModel(data.model ?? "");
         setSearchModel(data.search_model ?? "");
+        if (data.github_token) {
+          setGithubTokenMask(data.github_token);
+        }
         if (data.api_keys) {
           try {
             setApiKeyMasks(JSON.parse(data.api_keys));
@@ -64,6 +70,9 @@ export default function SettingsPage() {
     if (apiKeyChanged) {
       payload.api_key = apiKey;
     }
+    if (githubTokenChanged) {
+      payload.github_token = githubToken;
+    }
     const res = await fetch("/api/settings", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -81,6 +90,12 @@ export default function SettingsPage() {
       setApiKeyMasks((prev) => ({ ...prev, [provider]: mask }));
       setApiKey("");
       setApiKeyChanged(false);
+    }
+    if (githubTokenChanged) {
+      const mask = githubToken.length > 4 ? `...${githubToken.slice(-4)}` : "****";
+      setGithubTokenMask(mask);
+      setGithubToken("");
+      setGithubTokenChanged(false);
     }
     setTimeout(() => setSaved(false), 2000);
   }
@@ -181,6 +196,26 @@ export default function SettingsPage() {
           />
           <p className="mt-1 text-xs text-muted-foreground">
             Web-search-enabled model for when GitHub README is unavailable.
+          </p>
+        </div>
+
+        <div>
+          <label className="mb-1.5 block font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            GitHub Token
+          </label>
+          <Input
+            type="password"
+            value={githubTokenChanged ? githubToken : ""}
+            onChange={(e) => {
+              setGithubToken(e.target.value);
+              setGithubTokenChanged(true);
+            }}
+            placeholder={githubTokenMask || "ghp_... (optional)"}
+          />
+          <p className="mt-1 text-xs text-muted-foreground">
+            {githubTokenMask && !githubTokenChanged
+              ? `Token saved (${githubTokenMask}). Enter a new value to replace it.`
+              : "Increases GitHub API rate limit from 60 to 5,000 req/hr for README fetching."}
           </p>
         </div>
 

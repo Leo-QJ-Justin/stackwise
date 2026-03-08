@@ -91,8 +91,8 @@ async function handlePluginsChange(filePath: string) {
 
       if (existing) continue;
 
-      const apiKey = getSetting("api_key") || "";
       const providerId = getSetting("provider") ?? "openrouter";
+      const apiKey = getSetting(`api_key:${providerId}`) || getSetting("api_key") || "";
       const providerConfig = getProvider(providerId);
       const hasClassifier = providerConfig && (!providerConfig.needsKey || apiKey);
 
@@ -112,7 +112,7 @@ async function handlePluginsChange(filePath: string) {
           // Fall back to basic insert
           ensureTool(name, {
             status: "active",
-            source: "community",
+            source: "installed",
             category: "Development",
           });
         }
@@ -120,7 +120,7 @@ async function handlePluginsChange(filePath: string) {
         // No API key — basic insert
         ensureTool(name, {
           status: "active",
-          source: "community",
+          source: "installed",
           category: "Development",
         });
       }

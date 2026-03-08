@@ -21,6 +21,22 @@ export function TopBar({ onScanComplete }: TopBarProps) {
       .catch(() => {});
   }, [scanning]);
 
+  // Auto-scan on first load if DB is empty
+  const [autoScanned, setAutoScanned] = useState(false);
+  useEffect(() => {
+    if (autoScanned || scanning) return;
+    fetch("/api/stack")
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data) && data.length === 0) {
+          setAutoScanned(true);
+          handleScan();
+        }
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoScanned, scanning]);
+
   async function handleScan() {
     setScanning(true);
     setScanStatus(null);

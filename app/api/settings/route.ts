@@ -30,6 +30,10 @@ export async function GET() {
       if (legacy) apiKeys[currentProvider] = maskKey(legacy);
     }
     result.api_keys = JSON.stringify(apiKeys);
+    // Mask sensitive tokens before sending to client
+    if (result.github_token) {
+      result.github_token = maskKey(result.github_token);
+    }
     return NextResponse.json(result);
   } catch (error) {
     console.error("[settings] Failed to read settings:", error);
