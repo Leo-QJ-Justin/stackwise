@@ -26,7 +26,7 @@ export const PROVIDERS: ProviderConfig[] = [
   { id: "google", label: "Google Gemini", needsKey: true, defaultModel: "gemini-2.5-flash", group: "cloud", hint: "Gemini models via Google AI Studio key." },
   { id: "mistral", label: "Mistral", needsKey: true, defaultModel: "mistral-large-latest", group: "cloud", hint: "Mistral AI models." },
   { id: "bedrock", label: "Amazon Bedrock", needsKey: true, defaultModel: "anthropic.claude-sonnet-4-20250514-v1:0", group: "cloud", hint: "Format: ACCESS_KEY:SECRET_KEY:REGION" },
-  { id: "openrouter", label: "OpenRouter", needsKey: true, defaultModel: "anthropic/claude-sonnet-4", group: "meta", hint: "Access 200+ models with one API key." },
+  { id: "openrouter", label: "OpenRouter", needsKey: true, defaultModel: "anthropic/claude-sonnet-4-5", group: "meta", hint: "Access 200+ models with one API key." },
 ];
 
 export function getProvider(id: string): ProviderConfig | undefined {

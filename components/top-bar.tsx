@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { RefreshCw, Download, Settings } from "lucide-react";
@@ -21,21 +21,23 @@ export function TopBar({ onScanComplete }: TopBarProps) {
       .catch(() => {});
   }, [scanning]);
 
-  // Auto-scan on first load if DB is empty
-  const [autoScanned, setAutoScanned] = useState(false);
+  // Auto-scan on first load if DB is empty (ref prevents React strict mode double-fire)
+  const autoScannedRef = useRef(false);
   useEffect(() => {
-    if (autoScanned || scanning) return;
+    if (autoScannedRef.current || scanning) return;
+    autoScannedRef.current = true;
     fetch("/api/stack")
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data) && data.length === 0) {
-          setAutoScanned(true);
           handleScan();
+        } else {
+          autoScannedRef.current = false;
         }
       })
-      .catch(() => {});
+      .catch(() => { autoScannedRef.current = false; });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoScanned, scanning]);
+  }, []);
 
   async function handleScan() {
     setScanning(true);
@@ -69,10 +71,15 @@ export function TopBar({ onScanComplete }: TopBarProps) {
             if (event.type === "classifying") {
               setScanStatus(`Classifying ${event.name}...`);
             } else if (event.type === "classified") {
-              setScanStatus(`${event.name} → ${event.category ?? "done"}`);
+              setScanStatus(`Classified: ${event.name} → ${event.category ?? "done"}`);
+              onScanComplete?.();
+            } else if (event.type === "fallback") {
+              setScanStatus(`Added: ${event.name} (classification failed)`);
               onScanComplete?.();
             } else if (event.type === "phase") {
               setScanStatus(`Reclassifying ${event.total} tools...`);
+            } else if (event.type === "warning" && event.name) {
+              setScanStatus(`Warning: ${event.name} — ${event.warning}`);
             } else if (event.type === "error" && event.name) {
               setScanStatus(`Failed: ${event.name}`);
             } else if (event.type === "done") {
@@ -87,55 +94,63 @@ export function TopBar({ onScanComplete }: TopBarProps) {
     } catch {
       setScanStatus("Scan request failed");
     } finally {
+      // Keep banner visible briefly so user sees the final status
+      await new Promise((r) => setTimeout(r, 3000));
       setScanning(false);
     }
   }
 
   return (
-    <header className="flex items-center justify-between border-b border-border px-6 py-3">
-      <div className="flex items-center gap-4">
-        <h1 className="font-mono text-base font-bold tracking-tight text-primary">
-          StackWise
-        </h1>
-        {scanStatus && (
-          <span className="font-mono text-[11px] text-muted-foreground">
-            {scanStatus}
+    <>
+      <header className="flex items-center justify-between border-b border-border px-6 py-3">
+        <div className="flex items-center gap-4">
+          <h1 className="font-mono text-base font-bold tracking-tight text-primary">
+            StackWise
+          </h1>
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          {!scanning && unclassifiedCount > 0 && (
+            <span className="font-mono text-[11px] text-amber-500">
+              {unclassifiedCount} tool{unclassifiedCount !== 1 ? "s" : ""} need classification
+            </span>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="cursor-pointer gap-1.5"
+            onClick={handleScan}
+            disabled={scanning}
+          >
+            <RefreshCw className={`size-3.5 ${scanning ? "animate-spin" : ""}`} />
+            Scan
+          </Button>
+
+          <Link
+            href="/export"
+            className={buttonVariants({ variant: "ghost", size: "sm" })}
+          >
+            <Download className="size-3.5" />
+            Export
+          </Link>
+
+          <Link
+            href="/settings"
+            className={buttonVariants({ variant: "ghost", size: "icon-sm" })}
+          >
+            <Settings className="size-3.5" />
+          </Link>
+        </div>
+      </header>
+
+      {scanning && (
+        <div className="flex items-center gap-3 border-b border-border bg-muted/50 px-6 py-2">
+          <RefreshCw className="size-3.5 animate-spin text-primary" />
+          <span className="font-mono text-sm text-foreground">
+            {scanStatus ?? "Starting scan..."}
           </span>
-        )}
-      </div>
-
-      <div className="flex items-center gap-1.5">
-        {!scanning && unclassifiedCount > 0 && (
-          <span className="font-mono text-[11px] text-amber-500">
-            {unclassifiedCount} tool{unclassifiedCount !== 1 ? "s" : ""} need classification
-          </span>
-        )}
-        <Button
-          variant="outline"
-          size="sm"
-          className="cursor-pointer gap-1.5"
-          onClick={handleScan}
-          disabled={scanning}
-        >
-          <RefreshCw className={`size-3.5 ${scanning ? "animate-spin" : ""}`} />
-          Scan
-        </Button>
-
-        <Link
-          href="/export"
-          className={buttonVariants({ variant: "ghost", size: "sm" })}
-        >
-          <Download className="size-3.5" />
-          Export
-        </Link>
-
-        <Link
-          href="/settings"
-          className={buttonVariants({ variant: "ghost", size: "icon-sm" })}
-        >
-          <Settings className="size-3.5" />
-        </Link>
-      </div>
-    </header>
+        </div>
+      )}
+    </>
   );
 }

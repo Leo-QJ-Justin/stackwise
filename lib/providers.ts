@@ -71,7 +71,7 @@ export function classifyViaCLI(prompt: string): Promise<string> {
     const child = execFile(
       "claude",
       ["-p", "--output-format", "json"],
-      { timeout: 60000, maxBuffer: 1024 * 1024 },
+      { timeout: 60000, maxBuffer: 1024 * 1024, env: { ...process.env, CLAUDECODE: "" } },
       (error, stdout, stderr) => {
         if (error) {
           const errno = (error as NodeJS.ErrnoException).code;

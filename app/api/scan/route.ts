@@ -38,12 +38,23 @@ export async function POST() {
 
   const stream = new ReadableStream({
     async start(controller) {
+      let closed = false;
       function send(event: Record<string, unknown>) {
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+        if (closed) return;
+        try {
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+        } catch {
+          closed = true;
+        }
       }
 
       let classifiedCount = 0;
       let insertedCount = 0;
+
+      // Send heartbeat every 10s to prevent connection timeout during long LLM calls
+      const heartbeat = setInterval(() => {
+        send({ type: "heartbeat" });
+      }, 10_000);
 
       try {
         // 1. Scan installed_plugins.json — classify and insert any new plugins as active
@@ -178,7 +189,10 @@ export async function POST() {
         console.error("[scan] error:", error);
         send({ type: "error", error: `Scan failed: ${error instanceof Error ? error.message : String(error)}` });
       } finally {
-        controller.close();
+        clearInterval(heartbeat);
+        if (!closed) {
+          try { controller.close(); } catch { /* already closed */ }
+        }
       }
     },
   });
