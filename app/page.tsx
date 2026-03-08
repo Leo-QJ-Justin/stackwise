@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { TopBar } from "@/components/top-bar";
+import { StatsBar } from "@/components/stats-bar";
 import { StackDashboard } from "@/components/stack-dashboard";
 import { NotificationBar } from "@/components/notification-bar";
 
@@ -11,6 +12,7 @@ export default function Home() {
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
       <TopBar onScanComplete={() => setRefreshKey((k) => k + 1)} />
+      <StatsBar refreshKey={refreshKey} />
       <StackDashboard refreshKey={refreshKey} />
       <NotificationBar />
     </div>
