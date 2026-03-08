@@ -275,15 +275,8 @@ check "PUT /api/settings {} → 200 (no-op update)" "200" "$STATUS"
 echo ""
 echo "── Cleanup ──"
 
-# Remove any __test_tool__ entries
-curl -s "$BASE/api/tools" | python3 -c "
-import sys,json
-tools = json.load(sys.stdin)
-test_tools = [t for t in tools if t['name'].startswith('__test_')]
-for t in test_tools:
-    print(f'Cleaning up test tool: {t[\"name\"]} (id={t[\"id\"]})')
-" 2>/dev/null
-pass "Test data identified for cleanup"
+node "$(dirname "$0")/cleanup_test_data.js"
+pass "Test data cleaned up"
 
 # ── Summary ──
 echo ""
