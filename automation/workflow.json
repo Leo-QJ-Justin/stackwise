@@ -119,7 +119,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const items = $input.all();\nconst results = [];\n\nfor (let i = 0; i < items.length; i++) {\n  try {\n    const buffer = await this.helpers.getBinaryDataBuffer(i, 'data');\n    const FormData = (await import('form-data')).default;\n    const form = new FormData();\n    form.append('file', buffer, { filename: 'audio.mp4', contentType: 'video/mp4' });\n    form.append('model', 'Systran/faster-whisper-small');\n\n    const response = await this.helpers.httpRequest({\n      method: 'POST',\n      url: 'http://localhost:8000/v1/audio/transcriptions',\n      headers: form.getHeaders(),\n      body: form,\n      encoding: 'utf-8',\n      json: true\n    });\n\n    results.push({\n      json: {\n        ...items[i].json,\n        text: response.text || ''\n      }\n    });\n  } catch (error) {\n    results.push({\n      json: {\n        ...items[i].json,\n        text: items[i].json.caption || '',\n        whisperError: error.message\n      }\n    });\n  }\n}\n\nreturn results;"
+        "jsCode": "const items = $input.all();\nconst results = [];\n\nfor (let i = 0; i < items.length; i++) {\n  try {\n    const buffer = await this.helpers.getBinaryDataBuffer(i, 'data');\n    const FormData = (await import('form-data')).default;\n    const form = new FormData();\n    form.append('file', buffer, { filename: 'audio.mp4', contentType: 'video/mp4' });\n    form.append('model', 'Systran/faster-whisper-small');\n\n    const response = await this.helpers.httpRequest({\n      method: 'POST',\n      url: `${$env.WHISPER_URL || 'http://localhost:8000'}/v1/audio/transcriptions`,\n      headers: form.getHeaders(),\n      body: form,\n      encoding: 'utf-8',\n      json: true\n    });\n\n    results.push({\n      json: {\n        ...items[i].json,\n        text: response.text || ''\n      }\n    });\n  } catch (error) {\n    results.push({\n      json: {\n        ...items[i].json,\n        text: items[i].json.caption || '',\n        whisperError: error.message\n      }\n    });\n  }\n}\n\nreturn results;"
       },
       "id": "a1b2c3d4-0006-4000-8000-000000000006",
       "name": "Whisper Transcribe",
@@ -150,7 +150,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://localhost:3000/api/ingest",
+        "url": "={{ $env.STACKWISE_URL || 'http://localhost:3000' }}/api/ingest",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify($json) }}",

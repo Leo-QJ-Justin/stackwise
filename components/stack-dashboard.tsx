@@ -42,7 +42,7 @@ function ProvidesHint({ provides }: { provides: string }) {
   );
 }
 
-export function StackDashboard() {
+export function StackDashboard({ refreshKey = 0 }: { refreshKey?: number }) {
   const [stackItems, setStackItems] = useState<StackItem[]>([]);
   const [suggested, setSuggested] = useState<ToolData[]>([]);
   const [evaluated, setEvaluated] = useState<ToolData[]>([]);
@@ -63,7 +63,7 @@ export function StackDashboard() {
 
   useEffect(() => {
     loadData();
-  }, [loadData]);
+  }, [loadData, refreshKey]);
 
   const toggleCat = (cat: string) => {
     setExpandedCats((prev) => {

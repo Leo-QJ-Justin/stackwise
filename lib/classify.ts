@@ -27,7 +27,7 @@ export const verdictSchema = z.object({
     .string()
     .nullable()
     .describe("Name of existing stack tool if DUPLICATE or ALTERNATIVE"),
-  confidence: z.number().min(0).max(1),
+  confidence: z.number().describe("Confidence score between 0 and 1"),
   reasoning: z
     .string()
     .describe("Plain english explanation of the verdict"),
@@ -126,7 +126,7 @@ export async function classifyTool(input: {
   readmeContent?: string;
 }): Promise<Verdict | null> {
   const providerId = getSetting("provider") ?? "openrouter";
-  const apiKey = getSetting("api_key") || "";
+  const apiKey = getSetting(`api_key:${providerId}`) || getSetting("api_key") || "";
   const providerConfig = getProvider(providerId);
 
   if (!providerConfig) {

@@ -5,13 +5,59 @@ This n8n workflow monitors Instagram creators for Claude Code tool mentions, ext
 ## Prerequisites
 
 - StackWise running locally (`npm run dev` on port 3000)
-- n8n v2.10+ (self-hosted via npx)
-- Docker (for local Whisper transcription)
+- Docker & Docker Compose
 - API keys for: Apify, OCR.Space, OpenRouter
 
-## 1. Start Local Whisper Server
+## Quick Start (Docker Compose)
 
-Run a local Whisper model for video transcription (no OpenAI key needed):
+```bash
+cd automation
+cp .env.example .env
+# Edit .env with your API keys
+docker compose up -d
+```
+
+This starts both **n8n** (port 5678) and **Whisper** (port 8000). Open http://localhost:5678 and create an account.
+
+The workflow file is mounted read-only at `/home/node/workflow.json` — import it from the n8n editor (see step 3 below).
+
+### Environment Variables
+
+Copy `.env.example` to `.env` and fill in your API keys:
+
+| Variable | Description | Get it from |
+|----------|-------------|-------------|
+| `APIFY_TOKEN` | Apify API token | https://console.apify.com/account#/integrations |
+| `OCRSPACE_API_KEY` | OCR.Space API key | https://ocr.space/ocrapi (25K req/month free) |
+| `OPENROUTER_API_KEY` | OpenRouter API key | https://openrouter.ai/keys |
+
+The following are pre-configured in `docker-compose.yml` and don't need to be set manually:
+
+| Variable | Value | Purpose |
+|----------|-------|---------|
+| `WHISPER_URL` | `http://whisper:8000` | Docker-internal Whisper service |
+| `STACKWISE_URL` | `http://host.docker.internal:3000` | Host-running StackWise app |
+| `N8N_BLOCK_ENV_ACCESS_IN_NODE` | `false` | Allow `$env` access in workflows |
+| `N8N_DEFAULT_BINARY_DATA_MODE` | `filesystem` | Handle large video files |
+| `N8N_PAYLOAD_SIZE_MAX` | `256` | Max payload size in MB |
+
+**GPU Whisper** (optional): Edit `docker-compose.yml` to change the whisper image tag to `latest-cuda` and add a `deploy.resources.reservations.devices` GPU reservation.
+
+### Managing the Stack
+
+```bash
+docker compose up -d      # Start
+docker compose logs -f     # View logs
+docker compose down        # Stop
+docker compose down -v     # Stop and delete n8n data
+```
+
+## Manual Setup (without Docker Compose)
+
+<details>
+<summary>Click to expand manual setup steps</summary>
+
+### 1. Start Local Whisper Server
 
 ```bash
 docker run -d --name whisper \
@@ -22,9 +68,7 @@ docker run -d --name whisper \
 
 Verify: `curl http://localhost:8000/health` should return `OK`.
 
-**GPU support** (optional, faster): Use `latest-cuda` tag and add `--gpus all`.
-
-## 2. Start n8n
+### 2. Start n8n
 
 ```bash
 N8N_BLOCK_ENV_ACCESS_IN_NODE=false \
@@ -36,24 +80,13 @@ OPENROUTER_API_KEY=your_openrouter_key \
 npx n8n@2.10.4
 ```
 
-Open http://localhost:5678 and create an account.
-
-### Environment Variables
-
-| Variable | Description | Get it from |
-|----------|-------------|-------------|
-| `APIFY_TOKEN` | Apify API token | https://console.apify.com/account#/integrations |
-| `OCRSPACE_API_KEY` | OCR.Space API key | https://ocr.space/ocrapi (25K req/month free) |
-| `OPENROUTER_API_KEY` | OpenRouter API key | https://openrouter.ai/keys |
-| `N8N_BLOCK_ENV_ACCESS_IN_NODE` | Must be `false` to allow `$env` access in workflows | — |
-| `N8N_DEFAULT_BINARY_DATA_MODE` | Set to `filesystem` to handle large video files | — |
-| `N8N_PAYLOAD_SIZE_MAX` | Max payload size in MB (default 16, set to 256) | — |
+</details>
 
 ## 3. Import the Workflow
 
 1. Open n8n editor at http://localhost:5678
 2. Click **...** menu → **Import from File**
-3. Select `automation/workflow.json` from this project
+3. Select `automation/workflow.json` (mounted at `/home/node/workflow.json` in Docker)
 4. The workflow will appear with all nodes connected
 
 ## 4. Set Up Apify Instagram Scraper

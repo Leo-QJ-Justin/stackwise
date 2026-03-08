@@ -10,7 +10,8 @@ import { PROVIDERS } from "@/lib/shared";
 export default function SettingsPage() {
   const [provider, setProvider] = useState("openrouter");
   const [apiKey, setApiKey] = useState("");
-  const [apiKeyMask, setApiKeyMask] = useState("");
+  // Stores masked keys per provider from the server
+  const [apiKeyMasks, setApiKeyMasks] = useState<Record<string, string>>({});
   const [apiKeyChanged, setApiKeyChanged] = useState(false);
   const [model, setModel] = useState("");
   const [searchModel, setSearchModel] = useState("");
@@ -25,15 +26,20 @@ export default function SettingsPage() {
       })
       .then((data) => {
         setProvider(data.provider ?? "openrouter");
-        setApiKeyMask(data.api_key ?? "");
         setModel(data.model ?? "");
         setSearchModel(data.search_model ?? "");
+        if (data.api_keys) {
+          try {
+            setApiKeyMasks(JSON.parse(data.api_keys));
+          } catch {}
+        }
       })
       .catch((err) => console.error("[settings] Failed to load:", err));
   }, []);
 
   const selectedProvider = PROVIDERS.find((p) => p.id === provider);
   const needsKey = selectedProvider?.needsKey ?? true;
+  const currentMask = apiKeyMasks[provider] ?? "";
 
   function handleProviderChange(newProvider: string) {
     setProvider(newProvider);
@@ -43,9 +49,8 @@ export default function SettingsPage() {
     } else {
       setModel("");
     }
-    // Reset API key state when switching providers
+    // Reset the "editing" state — the mask for the new provider is already in apiKeyMasks
     setApiKey("");
-    setApiKeyMask("");
     setApiKeyChanged(false);
   }
 
@@ -72,7 +77,8 @@ export default function SettingsPage() {
     setSaving(false);
     setSaved(true);
     if (apiKeyChanged) {
-      setApiKeyMask(apiKey.length > 4 ? `...${apiKey.slice(-4)}` : "****");
+      const mask = apiKey.length > 4 ? `...${apiKey.slice(-4)}` : "****";
+      setApiKeyMasks((prev) => ({ ...prev, [provider]: mask }));
       setApiKey("");
       setApiKeyChanged(false);
     }
@@ -138,8 +144,13 @@ export default function SettingsPage() {
                 setApiKey(e.target.value);
                 setApiKeyChanged(true);
               }}
-              placeholder={apiKeyMask || "Enter API key..."}
+              placeholder={currentMask || "Enter API key..."}
             />
+            {currentMask && !apiKeyChanged && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Key saved ({currentMask}). Enter a new value to replace it.
+              </p>
+            )}
           </div>
         )}
 
