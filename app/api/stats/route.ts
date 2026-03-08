@@ -52,11 +52,10 @@ export async function GET() {
       (cat) => (categoryCoverage[cat] ?? 0) === 0
     );
 
-    // Most recent lastUpdated from installed tools
+    // Most recent lastUpdated across all tools
     const lastScanRow = db
       .select({ lastUpdated: toolsRegistry.lastUpdated })
       .from(toolsRegistry)
-      .where(eq(toolsRegistry.source, "installed"))
       .orderBy(sql`${toolsRegistry.lastUpdated} desc`)
       .limit(1)
       .get();

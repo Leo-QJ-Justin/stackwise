@@ -88,7 +88,7 @@ export async function POST() {
                   const [tool] = db.insert(toolsRegistry).values({
                     name,
                     status: "active",
-                    source: "installed",
+                    source: "community",
                     category: "Development",
                   }).returning().all();
                   db.insert(stackItems).values({ toolId: tool.id }).run();
@@ -103,7 +103,59 @@ export async function POST() {
           }
         }
 
-        // 2. Classify any active tools missing metadata (source-agnostic)
+        // 2. Scan MCP servers from ~/.claude/.mcp.json
+        const mcpPath = path.join(home, ".claude", ".mcp.json");
+        if (fs.existsSync(mcpPath)) {
+          try {
+            const raw = fs.readFileSync(mcpPath, "utf-8");
+            const data = JSON.parse(raw);
+            const servers = data.mcpServers && typeof data.mcpServers === "object" ? data.mcpServers : {};
+
+            for (const key of Object.keys(servers)) {
+              const name = formatName(key);
+              const existing = db
+                .select()
+                .from(toolsRegistry)
+                .where(sql`lower(replace(${toolsRegistry.name}, '-', ' ')) = lower(replace(${name}, '-', ' '))`)
+                .get();
+
+              if (!existing) {
+                send({ type: "classifying", name });
+
+                // Try to extract npm package name from args for README lookup
+                const args = servers[key]?.args as string[] | undefined;
+                const pkgArg = args?.find((a: string) => !a.startsWith("-") && a !== "-y");
+                const readme = pkgArg ? await fetchReadmeForPlugin(pkgArg) : null;
+
+                try {
+                  await classifyAndStore({
+                    name,
+                    readmeContent: readme ?? undefined,
+                    forceActive: true,
+                  });
+                  classifiedCount++;
+                  send({ type: "classified", name });
+                } catch (err) {
+                  console.error(`[scan] classification failed for MCP server "${name}":`, err);
+                  const [tool] = db.insert(toolsRegistry).values({
+                    name,
+                    status: "active",
+                    source: "community",
+                    category: "Integrations",
+                  }).returning().all();
+                  db.insert(stackItems).values({ toolId: tool.id }).run();
+                  insertedCount++;
+                  send({ type: "fallback", name, reason: err instanceof Error ? err.message : String(err) });
+                }
+              }
+            }
+          } catch (parseErr) {
+            console.error("[scan] Failed to parse .mcp.json:", parseErr);
+            send({ type: "error", error: `Failed to parse MCP config: ${parseErr instanceof Error ? parseErr.message : String(parseErr)}` });
+          }
+        }
+
+        // 3. Classify any active tools missing metadata (source-agnostic)
         const unclassified = db
           .select()
           .from(toolsRegistry)

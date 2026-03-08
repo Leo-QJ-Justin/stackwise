@@ -558,7 +558,6 @@ export function StackDashboard({ refreshKey = 0 }: { refreshKey?: number }) {
           <div className="grid grid-cols-1 gap-4 p-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {CATEGORIES.map((cat) => {
               const catStack = stackItems.filter((s) => s.tool.category === cat);
-              if (catStack.length === 0 && !activeDrag) return null;
 
               const topColor = CATEGORY_TOP_COLOR[cat] ?? "border-t-gray-500";
               const dotColor = CATEGORY_DOT_COLOR[cat] ?? "bg-gray-500";
