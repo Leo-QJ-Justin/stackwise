@@ -83,6 +83,48 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// PATCH /api/stack — update notes for a stack item
+export async function PATCH(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { toolId, notes } = body;
+
+    if (!toolId) {
+      return NextResponse.json(
+        { error: "toolId is required" },
+        { status: 400 }
+      );
+    }
+
+    if (typeof notes !== "string") {
+      return NextResponse.json(
+        { error: "notes must be a string" },
+        { status: 400 }
+      );
+    }
+
+    const updated = await db
+      .update(stackItems)
+      .set({ notes: notes || null })
+      .where(eq(stackItems.toolId, toolId))
+      .returning();
+
+    if (updated.length === 0) {
+      return NextResponse.json(
+        { error: "Tool not found in stack" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(updated[0]);
+  } catch (error) {
+    return NextResponse.json(
+      { error: "Failed to update notes" },
+      { status: 500 }
+    );
+  }
+}
+
 // DELETE /api/stack — remove toolId from stack
 export async function DELETE(request: NextRequest) {
   try {

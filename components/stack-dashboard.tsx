@@ -32,9 +32,21 @@ interface ToolData {
   category: string;
   provides: string | null;
   description: string | null;
+  source?: string | null;
   verdictReason?: string | null;
   replacesToolId?: number | null;
 }
+
+const CATEGORY_BORDER_COLOR: Record<string, string> = {
+  "Development": "border-l-blue-500",
+  "Skills & File Handling": "border-l-violet-500",
+  "Integrations": "border-l-emerald-500",
+  "Workflow & Agents": "border-l-amber-500",
+  "Prompting & Context": "border-l-rose-500",
+  "Research & Knowledge": "border-l-cyan-500",
+  "UI & Frontend": "border-l-pink-500",
+  "My Skills": "border-l-orange-500",
+};
 
 interface StackItem {
   id: number;
@@ -54,63 +66,148 @@ function ProvidesHint({ provides }: { provides: string }) {
   );
 }
 
-// ── Draggable tool row ──────────────────────────────────────────
+// ── Draggable tool card ─────────────────────────────────────────
 function DraggableToolRow({
   item,
   onRemove,
+  onUpdateNotes,
 }: {
   item: StackItem;
   onRemove: (toolId: number) => void;
+  onUpdateNotes: (toolId: number, notes: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `tool-${item.tool.id}`,
     data: { tool: item.tool },
   });
 
+  const [editingNotes, setEditingNotes] = useState(false);
+  const [draft, setDraft] = useState(item.notes ?? "");
+
+  const handleSave = () => {
+    onUpdateNotes(item.tool.id, draft);
+    setEditingNotes(false);
+  };
+
+  const handleCancel = () => {
+    setDraft(item.notes ?? "");
+    setEditingNotes(false);
+  };
+
+  const borderColor =
+    CATEGORY_BORDER_COLOR[item.tool.category] ?? "border-l-gray-500";
+  const sourceLabel = item.tool.source ?? "community";
+
   return (
     <div
       ref={setNodeRef}
-      className={`group/tool px-4 py-1 ${isDragging ? "opacity-30" : ""}`}
+      className={`group/tool px-4 py-1.5 ${isDragging ? "opacity-30" : ""}`}
     >
-      <div className="flex items-center gap-1">
-        <button
-          {...listeners}
-          {...attributes}
-          className="shrink-0 cursor-grab active:cursor-grabbing p-1 text-muted-foreground/40 hover:text-muted-foreground transition-colors"
-          title="Drag to re-categorize"
-        >
-          <GripVertical className="size-3" />
-        </button>
-        <Link
-          href={`/tools/${item.tool.id}`}
-          className="group flex flex-1 items-start gap-3 rounded-md px-2 py-2 transition-colors hover:bg-muted/50 cursor-pointer"
-        >
-          <div className="h-1.5 w-1.5 mt-[7px] shrink-0 rounded-full bg-primary/60" />
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-[13px] font-medium group-hover:text-primary transition-colors">
-                {item.tool.name}
-              </span>
-              {item.tool.provides && (
-                <ProvidesHint provides={item.tool.provides} />
+      <div
+        className={`rounded-lg border border-border/60 border-l-[3px] ${borderColor} bg-card/50 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[0_2px_6px_rgba(0,0,0,0.08)]`}
+      >
+        <div className="flex items-center gap-1 px-3 py-2">
+          <button
+            {...listeners}
+            {...attributes}
+            className="shrink-0 cursor-grab active:cursor-grabbing p-1 text-muted-foreground/40 hover:text-muted-foreground transition-colors"
+            title="Drag to re-categorize"
+          >
+            <GripVertical className="size-3" />
+          </button>
+          <Link
+            href={`/tools/${item.tool.id}`}
+            className="group flex flex-1 items-start gap-2.5 rounded-md px-1.5 py-0.5 transition-colors hover:bg-muted/40 cursor-pointer min-w-0"
+          >
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="font-mono text-[13px] font-medium group-hover:text-primary transition-colors">
+                  {item.tool.name}
+                </span>
+                {item.tool.provides && (
+                  <ProvidesHint provides={item.tool.provides} />
+                )}
+                <Badge
+                  variant="outline"
+                  className="ml-auto border-border/50 bg-muted/40 text-[9px] text-muted-foreground/70 px-1.5 py-0"
+                >
+                  {sourceLabel}
+                </Badge>
+              </div>
+              {item.tool.description && (
+                <p className="mt-0.5 text-xs text-muted-foreground/80 leading-relaxed truncate">
+                  {item.tool.description}
+                </p>
               )}
             </div>
-            {item.tool.description && (
-              <p className="mt-0.5 text-xs text-muted-foreground/80 leading-relaxed truncate">
-                {item.tool.description}
-              </p>
-            )}
-          </div>
-        </Link>
-        <Button
-          size="xs"
-          variant="ghost"
-          className="cursor-pointer text-muted-foreground opacity-0 group-hover/tool:opacity-100 transition-opacity shrink-0"
-          onClick={() => onRemove(item.tool.id)}
-          title="Remove from stack"
-        >
-          <X className="size-3" />
-        </Button>
+          </Link>
+          <Button
+            size="xs"
+            variant="ghost"
+            className="cursor-pointer text-muted-foreground opacity-0 group-hover/tool:opacity-100 transition-opacity shrink-0"
+            onClick={() => onRemove(item.tool.id)}
+            title="Remove from stack"
+          >
+            <X className="size-3" />
+          </Button>
+        </div>
+
+        {/* Inline notes */}
+        <div className="px-3 pb-2 pl-9">
+          {editingNotes ? (
+            <div className="flex flex-col gap-1">
+              <textarea
+                rows={2}
+                className="w-full resize-none rounded border border-border bg-muted/30 px-2 py-1 font-mono text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && e.metaKey) handleSave();
+                  if (e.key === "Escape") handleCancel();
+                }}
+              />
+              <div className="flex items-center gap-1">
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  className="cursor-pointer font-mono text-[10px] text-primary"
+                  onClick={handleSave}
+                >
+                  Save
+                </Button>
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  className="cursor-pointer font-mono text-[10px] text-muted-foreground"
+                  onClick={handleCancel}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          ) : item.notes ? (
+            <button
+              className="cursor-pointer text-left font-mono text-xs italic text-muted-foreground/70 hover:text-muted-foreground transition-colors"
+              onClick={() => {
+                setDraft(item.notes ?? "");
+                setEditingNotes(true);
+              }}
+            >
+              {item.notes}
+            </button>
+          ) : (
+            <button
+              className="cursor-pointer font-mono text-[10px] text-muted-foreground/50 hover:text-muted-foreground transition-colors opacity-0 group-hover/tool:opacity-100"
+              onClick={() => {
+                setDraft("");
+                setEditingNotes(true);
+              }}
+            >
+              Add note
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -247,6 +344,21 @@ export function StackDashboard({ refreshKey = 0 }: { refreshKey?: number }) {
     loadData();
   };
 
+  const handleUpdateNotes = async (toolId: number, notes: string) => {
+    const res = await fetch("/api/stack", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ toolId, notes }),
+    });
+    if (res.ok) {
+      setStackItems((prev) =>
+        prev.map((item) =>
+          item.toolId === toolId ? { ...item, notes: notes || null } : item
+        )
+      );
+    }
+  };
+
   const handleRecategorize = async (toolId: number, newCategory: string) => {
     await fetch("/api/tools", {
       method: "PATCH",
@@ -375,6 +487,7 @@ export function StackDashboard({ refreshKey = 0 }: { refreshKey?: number }) {
               suggestionCount={suggestionCount}
               onToggle={() => toggleCat(cat)}
               onRemove={handleRemove}
+              onUpdateNotes={handleUpdateNotes}
               replacementMap={replacementMap}
               evaluatedReplacementMap={evaluatedReplacementMap}
               catPureSuggestions={catPureSuggestions}
@@ -412,6 +525,7 @@ function CategorySection({
   suggestionCount,
   onToggle,
   onRemove,
+  onUpdateNotes,
   replacementMap,
   evaluatedReplacementMap,
   catPureSuggestions,
@@ -426,6 +540,7 @@ function CategorySection({
   suggestionCount: number;
   onToggle: () => void;
   onRemove: (toolId: number) => void;
+  onUpdateNotes: (toolId: number, notes: string) => void;
   replacementMap: Map<number, ToolData[]>;
   evaluatedReplacementMap: Map<number, ToolData[]>;
   catPureSuggestions: ToolData[];
@@ -493,7 +608,7 @@ function CategorySection({
                 className="grid grid-cols-2 min-h-[44px]"
               >
                 {/* Left: stack tool (draggable) */}
-                <DraggableToolRow item={item} onRemove={onRemove} />
+                <DraggableToolRow item={item} onRemove={onRemove} onUpdateNotes={onUpdateNotes} />
 
                 {/* Right: replacement suggestion(s) aligned to this tool */}
                 <div className="border-l border-border px-4 py-1">
