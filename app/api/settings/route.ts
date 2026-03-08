@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSetting, setSetting } from "@/lib/settings";
 
-const ALLOWED_KEYS = ["provider", "api_key", "model", "search_model"];
+const ALLOWED_KEYS = ["provider", "api_key", "model", "search_model", "watchlist"];
 
 export async function GET() {
   try {
