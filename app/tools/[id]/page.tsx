@@ -52,11 +52,6 @@ export default async function ToolDetailPage({
 
       <div className="flex items-center gap-3">
         <h1 className="font-mono text-2xl font-bold">{tool.name}</h1>
-        {tool.provides && parseProvides(tool.provides).length > 0 && (
-          <Badge variant="secondary">
-            {parseProvides(tool.provides).length} capabilities
-          </Badge>
-        )}
         <Badge
           variant={
             tool.status === "adopted"
@@ -72,6 +67,22 @@ export default async function ToolDetailPage({
 
       {tool.description && (
         <p className="mt-3 text-muted-foreground">{tool.description}</p>
+      )}
+
+      {tool.provides && parseProvides(tool.provides).length > 0 && (
+        <div className="mt-4">
+          <span className="font-mono text-xs uppercase text-muted-foreground">
+            Capabilities
+          </span>
+          <ul className="mt-1.5 grid gap-1">
+            {parseProvides(tool.provides).map((cap, i) => (
+              <li key={i} className="flex items-start gap-2 text-sm">
+                <span className="mt-0.5 text-muted-foreground">•</span>
+                {cap}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       <Separator className="my-6" />
