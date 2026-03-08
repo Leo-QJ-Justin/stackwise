@@ -97,6 +97,9 @@ stackwise/
 │   ├── watcher.ts          File system watcher for auto-detection
 │   ├── github.ts           README fetching for URL-based submissions
 │   └── settings.ts         Settings helpers
+├── automation/
+│   ├── workflow.json       Tested n8n workflow for Instagram monitoring
+│   └── SETUP.md            Automation setup guide
 ├── db/
 │   └── stack.db            SQLite database (created on setup)
 └── docs/
@@ -107,8 +110,20 @@ stackwise/
 
 - **tools_registry** — Every tool ever seen: name, category, status, verdict reasoning, capabilities
 - **stack_items** — Your active stack (references tools_registry)
+- **ingested_content** — Raw pipeline output from n8n (source URL, text, verdicts)
 - **duplicates_log** — Audit trail of every filtered tool and why
-- **settings** — Provider, API key, model preferences
+- **settings** — Provider, API key, model preferences, watchlist
+
+## Automation (Optional)
+
+StackWise includes a bundled n8n workflow that monitors Instagram creators for Claude Code tool mentions. The pipeline:
+
+1. Apify scrapes Instagram posts on a schedule
+2. n8n routes images to OCR.Space and reels to Whisper for text extraction
+3. Claude extracts tool names from the extracted text
+4. Results are POSTed to StackWise `/api/ingest` for classification
+
+See [`automation/SETUP.md`](automation/SETUP.md) for setup instructions.
 
 ## Build Order
 
@@ -117,7 +132,7 @@ stackwise/
 | 1. App Scaffold | Done | Dashboard, schema, API routes, file watcher |
 | 2. Intelligence Layer | Done | LLM classification, verdicts, multi-provider support |
 | 3. Desktop Packaging | Planned | Tauri wrapper for native app distribution |
-| 4. Automation Bundle | Planned | n8n workflow for hands-free Instagram monitoring |
+| 4. Automation Bundle | Done | n8n workflow for hands-free Instagram monitoring |
 | 5. Refinement | Planned | Confidence tuning, gap analysis, onboarding polish |
 
 ## License

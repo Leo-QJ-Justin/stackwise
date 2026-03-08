@@ -78,3 +78,7 @@ export type SelectTool = typeof toolsRegistry.$inferSelect;
 export type InsertStackItem = typeof stackItems.$inferInsert;
 export type SelectStackItem = typeof stackItems.$inferSelect;
 export type InsertSwap = typeof swapHistory.$inferInsert;
+export type InsertIngestedContent = typeof ingestedContent.$inferInsert;
+export type SelectIngestedContent = typeof ingestedContent.$inferSelect;
+export type InsertDuplicatesLog = typeof duplicatesLog.$inferInsert;
+export type SelectDuplicatesLog = typeof duplicatesLog.$inferSelect;
