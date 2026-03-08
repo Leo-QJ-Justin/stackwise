@@ -11,6 +11,8 @@ import {
   ChevronDown,
   ChevronRight,
   GripVertical,
+  List,
+  LayoutGrid,
 } from "lucide-react";
 import {
   DndContext,
@@ -46,6 +48,28 @@ const CATEGORY_BORDER_COLOR: Record<string, string> = {
   "Research & Knowledge": "border-l-cyan-500",
   "UI & Frontend": "border-l-pink-500",
   "My Skills": "border-l-orange-500",
+};
+
+const CATEGORY_TOP_COLOR: Record<string, string> = {
+  "Development": "border-t-blue-500",
+  "Skills & File Handling": "border-t-violet-500",
+  "Integrations": "border-t-emerald-500",
+  "Workflow & Agents": "border-t-amber-500",
+  "Prompting & Context": "border-t-rose-500",
+  "Research & Knowledge": "border-t-cyan-500",
+  "UI & Frontend": "border-t-pink-500",
+  "My Skills": "border-t-orange-500",
+};
+
+const CATEGORY_DOT_COLOR: Record<string, string> = {
+  "Development": "bg-blue-500",
+  "Skills & File Handling": "bg-violet-500",
+  "Integrations": "bg-emerald-500",
+  "Workflow & Agents": "bg-amber-500",
+  "Prompting & Context": "bg-rose-500",
+  "Research & Knowledge": "bg-cyan-500",
+  "UI & Frontend": "bg-pink-500",
+  "My Skills": "bg-orange-500",
 };
 
 interface StackItem {
@@ -270,6 +294,8 @@ function DroppableCategoryHeader({
   );
 }
 
+type ViewMode = "list" | "bento";
+
 // ── Main dashboard ──────────────────────────────────────────────
 export function StackDashboard({ refreshKey = 0 }: { refreshKey?: number }) {
   const [stackItems, setStackItems] = useState<StackItem[]>([]);
@@ -279,6 +305,7 @@ export function StackDashboard({ refreshKey = 0 }: { refreshKey?: number }) {
     new Set(CATEGORIES)
   );
   const [activeDrag, setActiveDrag] = useState<ToolData | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
@@ -431,73 +458,123 @@ export function StackDashboard({ refreshKey = 0 }: { refreshKey?: number }) {
       onDragEnd={onDragEnd}
     >
       <div className="flex-1 overflow-y-auto">
-        {/* Column headers */}
-        <div className="sticky top-0 z-10 grid grid-cols-2 border-b border-border bg-background/95 backdrop-blur-sm">
-          <div className="px-6 py-3">
+        {/* Column headers with view toggle */}
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-background/95 backdrop-blur-sm px-6 py-3">
+          <div className="flex items-center gap-6">
             <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
               My Stack
             </span>
+            {viewMode === "list" && (
+              <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground/50">
+                Intelligence Feed
+              </span>
+            )}
           </div>
-          <div className="border-l border-border px-6 py-3">
-            <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-              Intelligence Feed
-            </span>
+          <div className="flex items-center gap-0.5 rounded-md border border-border bg-muted/40 p-0.5">
+            <button
+              onClick={() => setViewMode("list")}
+              className={`cursor-pointer rounded p-1.5 transition-colors ${
+                viewMode === "list"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              title="List view"
+              aria-label="List view"
+            >
+              <List className="size-3.5" />
+            </button>
+            <button
+              onClick={() => setViewMode("bento")}
+              className={`cursor-pointer rounded p-1.5 transition-colors ${
+                viewMode === "bento"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              title="Grid view"
+              aria-label="Grid view"
+            >
+              <LayoutGrid className="size-3.5" />
+            </button>
           </div>
         </div>
 
-        {/* Category rows */}
-        {CATEGORIES.map((cat) => {
-          const catStack = stackItems.filter((s) => s.tool.category === cat);
-          const catPureSuggestions = pureSuggestions.filter(
-            (t) => t.category === cat
-          );
-          const catPureEvaluated = pureEvaluated.filter(
-            (t) => t.category === cat
-          );
-          const catHasReplacements = catStack.some(
-            (s) =>
-              replacementMap.has(s.tool.id) ||
-              evaluatedReplacementMap.has(s.tool.id)
-          );
+        {viewMode === "list" ? (
+          /* ── List View ── */
+          <>
+            {CATEGORIES.map((cat) => {
+              const catStack = stackItems.filter((s) => s.tool.category === cat);
+              const catPureSuggestions = pureSuggestions.filter(
+                (t) => t.category === cat
+              );
+              const catPureEvaluated = pureEvaluated.filter(
+                (t) => t.category === cat
+              );
+              const catHasReplacements = catStack.some(
+                (s) =>
+                  replacementMap.has(s.tool.id) ||
+                  evaluatedReplacementMap.has(s.tool.id)
+              );
 
-          // Show all categories during drag so user has targets; otherwise only categories with content
-          const hasContent =
-            activeDrag !== null ||
-            catStack.length > 0 ||
-            catPureSuggestions.length > 0 ||
-            catPureEvaluated.length > 0 ||
-            catHasReplacements;
+              const hasContent =
+                activeDrag !== null ||
+                catStack.length > 0 ||
+                catPureSuggestions.length > 0 ||
+                catPureEvaluated.length > 0 ||
+                catHasReplacements;
 
-          if (!hasContent) return null;
+              if (!hasContent) return null;
 
-          const isExpanded = expandedCats.has(cat);
-          const suggestionCount =
-            catPureSuggestions.length +
-            catStack.reduce(
-              (n, s) => n + (replacementMap.get(s.tool.id)?.length ?? 0),
-              0
-            );
+              const isExpanded = expandedCats.has(cat);
+              const suggestionCount =
+                catPureSuggestions.length +
+                catStack.reduce(
+                  (n, s) => n + (replacementMap.get(s.tool.id)?.length ?? 0),
+                  0
+                );
 
-          return (
-            <CategorySection
-              key={cat}
-              cat={cat}
-              catStack={catStack}
-              isExpanded={isExpanded}
-              suggestionCount={suggestionCount}
-              onToggle={() => toggleCat(cat)}
-              onRemove={handleRemove}
-              onUpdateNotes={handleUpdateNotes}
-              replacementMap={replacementMap}
-              evaluatedReplacementMap={evaluatedReplacementMap}
-              catPureSuggestions={catPureSuggestions}
-              catPureEvaluated={catPureEvaluated}
-              onAccept={handleAccept}
-              onSwap={handleSwap}
-              onSkip={handleSkip}
-            />
-          );
-        })}
+              return (
+                <CategorySection
+                  key={cat}
+                  cat={cat}
+                  catStack={catStack}
+                  isExpanded={isExpanded}
+                  suggestionCount={suggestionCount}
+                  onToggle={() => toggleCat(cat)}
+                  onRemove={handleRemove}
+                  onUpdateNotes={handleUpdateNotes}
+                  replacementMap={replacementMap}
+                  evaluatedReplacementMap={evaluatedReplacementMap}
+                  catPureSuggestions={catPureSuggestions}
+                  catPureEvaluated={catPureEvaluated}
+                  onAccept={handleAccept}
+                  onSwap={handleSwap}
+                  onSkip={handleSkip}
+                />
+              );
+            })}
+          </>
+        ) : (
+          /* ── Bento Grid View ── */
+          <div className="grid grid-cols-1 gap-4 p-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {CATEGORIES.map((cat) => {
+              const catStack = stackItems.filter((s) => s.tool.category === cat);
+              if (catStack.length === 0 && !activeDrag) return null;
+
+              const topColor = CATEGORY_TOP_COLOR[cat] ?? "border-t-gray-500";
+              const dotColor = CATEGORY_DOT_COLOR[cat] ?? "bg-gray-500";
+
+              return (
+                <BentoCategoryTile
+                  key={cat}
+                  cat={cat}
+                  catStack={catStack}
+                  topColor={topColor}
+                  dotColor={dotColor}
+                />
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Drag overlay — floating preview while dragging */}
@@ -514,6 +591,78 @@ export function StackDashboard({ refreshKey = 0 }: { refreshKey?: number }) {
         )}
       </DragOverlay>
     </DndContext>
+  );
+}
+
+// ── Bento category tile ─────────────────────────────────────────
+function BentoCategoryTile({
+  cat,
+  catStack,
+  topColor,
+  dotColor,
+}: {
+  cat: string;
+  catStack: StackItem[];
+  topColor: string;
+  dotColor: string;
+}) {
+  const { isOver, setNodeRef } = useDroppable({ id: `category-${cat}` });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`group/bento rounded-2xl border border-border/60 border-t-[3px] ${topColor} bg-card/50 shadow-[0_2px_8px_rgba(0,0,0,0.04)] transition-all duration-200 hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] hover:scale-[1.02] ${
+        isOver ? "ring-2 ring-primary/30 bg-primary/[0.04]" : ""
+      }`}
+    >
+      {/* Tile header */}
+      <div className="flex items-center gap-2 px-4 pt-4 pb-2">
+        <span className={`size-2 rounded-full ${dotColor}`} />
+        <span className="font-mono text-xs font-semibold uppercase tracking-[0.12em] text-foreground">
+          {cat}
+        </span>
+        <span className="ml-auto font-mono text-[11px] text-muted-foreground">
+          {catStack.length}
+        </span>
+      </div>
+
+      {/* Tool list */}
+      <div className="px-4 pb-4 space-y-1.5">
+        {catStack.length === 0 ? (
+          <p className="font-mono text-[11px] text-muted-foreground/50 py-2">
+            {isOver ? "Drop here" : "Empty"}
+          </p>
+        ) : (
+          catStack.map((item) => (
+            <Link
+              key={item.tool.id}
+              href={`/tools/${item.tool.id}`}
+              className="group/item flex items-center gap-2 rounded-lg px-2.5 py-1.5 transition-colors hover:bg-muted/50 cursor-pointer"
+            >
+              <div className="size-1.5 rounded-full bg-primary/40 shrink-0" />
+              <div className="min-w-0 flex-1">
+                <span className="font-mono text-[12px] font-medium group-hover/item:text-primary transition-colors truncate block">
+                  {item.tool.name}
+                </span>
+                {item.notes && (
+                  <span className="font-mono text-[10px] italic text-muted-foreground/60 truncate block">
+                    {item.notes}
+                  </span>
+                )}
+              </div>
+              {item.tool.source && (
+                <Badge
+                  variant="outline"
+                  className="shrink-0 border-border/40 text-[8px] text-muted-foreground/50 px-1 py-0"
+                >
+                  {item.tool.source}
+                </Badge>
+              )}
+            </Link>
+          ))
+        )}
+      </div>
+    </div>
   );
 }
 
