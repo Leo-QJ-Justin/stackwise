@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { RefreshCw, Download, Settings } from "lucide-react";
+import { RefreshCw, Download, Settings, History } from "lucide-react";
 
 interface TopBarProps {
   onScanComplete?: () => void;
@@ -132,6 +132,14 @@ export function TopBar({ onScanComplete }: TopBarProps) {
           >
             <Download className="size-3.5" />
             Export
+          </Link>
+
+          <Link
+            href="/history"
+            className={buttonVariants({ variant: "ghost", size: "sm" })}
+          >
+            <History className="size-3.5" />
+            History
           </Link>
 
           <Link
