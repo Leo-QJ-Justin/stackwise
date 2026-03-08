@@ -42,6 +42,37 @@ const stackVerdictSchema = z.object({
 
 export type StackVerdict = z.infer<typeof stackVerdictSchema>;
 
+/**
+ * Parse Claude CLI JSON envelope and validate against a Zod schema.
+ * CLI returns `{ result: "..." }` where result contains LLM text with embedded JSON.
+ */
+function parseCliJson<T>(raw: string, schema: z.ZodType<T>): T {
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error(
+      `Claude CLI returned non-JSON output. Raw output (first 200 chars): ${String(raw).slice(0, 200)}`
+    );
+  }
+  const text = String(parsed.result ?? raw);
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) {
+    throw new Error(
+      `Claude CLI response did not contain JSON. Response (first 200 chars): ${text.slice(0, 200)}`
+    );
+  }
+  let extracted: unknown;
+  try {
+    extracted = JSON.parse(jsonMatch[0]);
+  } catch {
+    throw new Error(
+      `Failed to parse JSON from CLI response. Extracted (first 200 chars): ${jsonMatch[0].slice(0, 200)}`
+    );
+  }
+  return schema.parse(extracted);
+}
+
 function buildStackContext(): string {
   const items = db
     .select({
@@ -59,16 +90,19 @@ function buildStackContext(): string {
 
   return items
     .map((t) => {
-      const prov = t.provides ? ` | Provides: ${t.provides}` : "";
+      let provStr = "";
+      if (t.provides) {
+        try { provStr = ` | Provides: ${JSON.parse(t.provides).join(", ")}`; } catch { provStr = ` | Provides: ${t.provides}`; }
+      }
       const desc = t.description ? ` — ${t.description}` : "";
-      return `- [${t.id}] ${t.name} (${t.category})${desc}${prov}`;
+      return `- [${t.id}] ${t.name} (${t.category})${desc}${provStr}`;
     })
     .join("\n");
 }
 
 /**
- * Classify a tool for metadata only (name, category, description, provides).
- * No stack comparison — used for installed plugins where verdict is irrelevant.
+ * Step 1 of the two-step pipeline: extract tool metadata (name, category, description, provides).
+ * No stack comparison — that is handled separately by compareToStack().
  * Throws on provider misconfiguration or LLM failures.
  */
 export async function classifyToolMetadata(input: {
@@ -110,16 +144,7 @@ Return: name (canonical), category (one of: ${CATEGORIES.join(", ")}), descripti
   try {
     if (providerId === "claude-cli") {
       const raw = await classifyViaCLI(prompt);
-      let parsed: Record<string, unknown>;
-      try {
-        parsed = JSON.parse(raw);
-      } catch {
-        throw new Error(`Claude CLI returned non-JSON output.`);
-      }
-      const text = String(parsed.result ?? raw);
-      const jsonMatch = text.match(/\{[\s\S]*?\}/);
-      if (!jsonMatch) throw new Error(`No JSON in CLI response`);
-      return metadataSchema.parse(JSON.parse(jsonMatch[0]));
+      return parseCliJson(raw, metadataSchema);
     }
 
     const model = await createModel(providerId, apiKey, modelId);
@@ -149,8 +174,9 @@ Return: name (canonical), category (one of: ${CATEGORIES.join(", ")}), descripti
 }
 
 /**
- * Compare a tool against the current active stack.
- * Requires the tool to already have metadata (from discoverTool).
+ * Step 2 of the two-step pipeline: compare a tool against the current active stack.
+ * Requires the tool to already have metadata (from classifyToolMetadata).
+ * Reads the active stack from the database via buildStackContext().
  * Returns verdict: NEW, DUPLICATE, ALTERNATIVE, or UNRELATED.
  */
 export async function compareToStack(input: {
@@ -199,16 +225,7 @@ Return: verdict (NEW|DUPLICATE|ALTERNATIVE|UNRELATED), mapsTo (string or null), 
   try {
     if (providerId === "claude-cli") {
       const raw = await classifyViaCLI(prompt);
-      let parsed: Record<string, unknown>;
-      try {
-        parsed = JSON.parse(raw);
-      } catch {
-        throw new Error(`Claude CLI returned non-JSON output.`);
-      }
-      const text = String(parsed.result ?? raw);
-      const jsonMatch = text.match(/\{[\s\S]*?\}/);
-      if (!jsonMatch) throw new Error(`No JSON in CLI response`);
-      return stackVerdictSchema.parse(JSON.parse(jsonMatch[0]));
+      return parseCliJson(raw, stackVerdictSchema);
     }
 
     const model = await createModel(providerId, apiKey, modelId);
@@ -246,7 +263,7 @@ export async function classifyAndStore(input: {
   tool: typeof toolsRegistry.$inferSelect;
   verdict: StackVerdict | null;
 }> {
-  // Registry dedup check (fuzzy: ignore case and hyphens/spaces)
+  // Registry dedup check (normalized: ignore case and hyphens/spaces)
   const existing = db
     .select()
     .from(toolsRegistry)
@@ -270,8 +287,13 @@ export async function classifyAndStore(input: {
       provides: meta.provides,
     });
   } catch (err) {
+    // Infrastructure errors (DB, provider config) should propagate — not be masked.
+    // Only LLM/parsing failures are non-fatal.
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes("SQLITE") || msg.includes("Unknown provider") || msg.includes("No API key configured")) {
+      throw err;
+    }
     console.warn(`[classify] stack comparison failed for "${input.name}", proceeding with discovery only:`, err);
-    // Comparison failure is non-fatal — we still have metadata
   }
 
   // Step 3: Determine status based on forceActive + verdict
@@ -329,8 +351,8 @@ export async function classifyAndStore(input: {
     db.insert(stackItems).values({ toolId: tool.id }).run();
   }
 
-  // Log duplicates/rejections
-  if (verdict && (verdict.verdict === "DUPLICATE" || verdict.verdict === "UNRELATED")) {
+  // Log duplicates/rejections (community tools only — installed tools get overlap log below)
+  if (!input.forceActive && verdict && (verdict.verdict === "DUPLICATE" || verdict.verdict === "UNRELATED")) {
     db.insert(duplicatesLog)
       .values({
         verdict: verdict.verdict,

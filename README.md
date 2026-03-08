@@ -15,7 +15,7 @@ Tool arrives (pipeline, scan, or file watcher)
     |
     v
 Registry dedup check (case-insensitive, hyphen-normalized)
-    |--- Already known -------> bump mention count, done
+    |--- Already known -------> return existing (ingest also bumps mention count)
     |--- Unknown -------------> two-step classification:
                                    |
                                    v
@@ -38,11 +38,11 @@ Registry dedup check (case-insensitive, hyphen-normalized)
 
 | Route | Source | Trigger |
 |-------|--------|---------|
-| `/api/scan` | Installed plugins | Manual scan button or auto-scan on first load |
+| `/api/scan` | Installed plugins + unclassified | Manual scan button or auto-scan on first load |
 | `/api/ingest` | n8n automation | Instagram/social media pipeline POSTs tool mentions |
 | `lib/watcher.ts` | File system | chokidar watches `~/.claude/plugins/` and `~/.claude/skills/` |
 
-All three routes call `classifyAndStore()` which runs both steps internally. The LLM is only called for genuinely unknown tools — the registry acts as a cache.
+New tools go through `classifyAndStore()` which runs both steps internally. The scan also reclassifies existing tools missing metadata via direct `classifyToolMetadata()` + `compareToStack()` calls. The LLM is only called for genuinely unknown or unclassified tools — the registry acts as a cache.
 
 ## Features
 
