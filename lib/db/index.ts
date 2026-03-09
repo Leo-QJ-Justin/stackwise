@@ -14,4 +14,63 @@ const sqlite = new Database(dbPath);
 sqlite.pragma("journal_mode = WAL");
 sqlite.pragma("foreign_keys = ON");
 
+// Auto-create tables if they don't exist
+sqlite.exec(`
+  CREATE TABLE IF NOT EXISTS tools_registry (
+    id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+    name text NOT NULL,
+    category text NOT NULL,
+    provides text,
+    description text,
+    status text NOT NULL DEFAULT 'unclassified',
+    source text NOT NULL DEFAULT 'community',
+    verdict_reason text,
+    first_seen text NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+    times_mentioned integer NOT NULL DEFAULT 1,
+    last_updated text NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+    canonical_url text,
+    replaces_tool_id integer REFERENCES tools_registry(id)
+  );
+  CREATE TABLE IF NOT EXISTS stack_items (
+    id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+    tool_id integer NOT NULL,
+    notes text,
+    added_at text NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+    FOREIGN KEY (tool_id) REFERENCES tools_registry(id)
+  );
+  CREATE TABLE IF NOT EXISTS ingested_content (
+    id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+    source_url text,
+    post_type text,
+    raw_text text,
+    claude_verdict text,
+    mapped_to_tool_id integer,
+    processed_at text NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+    FOREIGN KEY (mapped_to_tool_id) REFERENCES tools_registry(id)
+  );
+  CREATE TABLE IF NOT EXISTS duplicates_log (
+    id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+    content_id integer,
+    verdict text NOT NULL,
+    mapped_to_name text,
+    reason text,
+    reviewed integer NOT NULL DEFAULT 0,
+    logged_at text NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+    FOREIGN KEY (content_id) REFERENCES ingested_content(id)
+  );
+  CREATE TABLE IF NOT EXISTS settings (
+    key text PRIMARY KEY NOT NULL,
+    value text
+  );
+  CREATE TABLE IF NOT EXISTS swap_history (
+    id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+    old_tool_id integer,
+    new_tool_id integer,
+    reason text,
+    swapped_at text NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+    FOREIGN KEY (old_tool_id) REFERENCES tools_registry(id),
+    FOREIGN KEY (new_tool_id) REFERENCES tools_registry(id)
+  );
+`);
+
 export const db = drizzle(sqlite, { schema });
