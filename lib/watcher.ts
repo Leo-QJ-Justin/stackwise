@@ -8,7 +8,7 @@ import { toolsRegistry, stackItems } from "./db/schema";
 import { classifyAndStore } from "./classify";
 import { fetchReadmeForPlugin } from "./github";
 import { getSetting } from "./settings";
-import { CATEGORIES, getProvider } from "./shared";
+import { CATEGORIES, getProvider, inferCategory } from "./shared";
 
 const pluginsJsonPath = path.join(
   os.homedir(),
@@ -113,7 +113,7 @@ async function handlePluginsChange(filePath: string) {
           ensureTool(name, {
             status: "active",
             source: "installed",
-            category: "Development",
+            category: inferCategory(name),
           });
         }
       } else {
@@ -121,7 +121,7 @@ async function handlePluginsChange(filePath: string) {
         ensureTool(name, {
           status: "active",
           source: "installed",
-          category: "Development",
+          category: "Unclassified",
         });
       }
     }

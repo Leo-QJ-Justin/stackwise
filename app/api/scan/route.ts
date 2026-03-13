@@ -5,6 +5,7 @@ import { eq, sql, isNull, and } from "drizzle-orm";
 import { classifyAndStore, classifyToolMetadata, compareToStack, type StackVerdict } from "@/lib/classify";
 import { fetchReadmeForPlugin } from "@/lib/github";
 import { parseFrontmatter } from "@/lib/frontmatter";
+import { inferCategory } from "@/lib/shared";
 import fs from "fs";
 import path from "path";
 import os from "os";
@@ -96,7 +97,9 @@ function discoverPluginChildren(
             db.insert(toolsRegistry)
               .values({
                 name: skillName,
-                category: parentCategory,
+                category: inferCategory(skillName, description) !== "Unclassified"
+                  ? inferCategory(skillName, description)
+                  : parentCategory,
                 capabilityType: "skill",
                 parentPluginId: parentId,
                 skillPath: skillMdPath,
@@ -156,7 +159,9 @@ function discoverPluginChildren(
             db.insert(toolsRegistry)
               .values({
                 name: cmdName,
-                category: parentCategory,
+                category: inferCategory(cmdName, description) !== "Unclassified"
+                  ? inferCategory(cmdName, description)
+                  : parentCategory,
                 capabilityType: "command",
                 parentPluginId: parentId,
                 skillPath: cmdPath,
@@ -199,13 +204,16 @@ function discoverPluginChildren(
           .get();
 
         if (!existing) {
+          const mcpDesc = `Bundled MCP server from ${parentName}`;
           db.insert(toolsRegistry)
             .values({
               name: serverName,
-              category: parentCategory,
+              category: inferCategory(serverName, mcpDesc) !== "Unclassified"
+                ? inferCategory(serverName, mcpDesc)
+                : parentCategory,
               capabilityType: "mcp_server",
               parentPluginId: parentId,
-              description: `Bundled MCP server from ${parentName}`,
+              description: mcpDesc,
               status: "active",
               source: "installed",
             })
@@ -341,7 +349,7 @@ export async function POST() {
                     name,
                     status: "active",
                     source: "community",
-                    category: "Development",
+                    category: inferCategory(name),
                     capabilityType: "plugin",
                   }).returning().all();
                   db.insert(stackItems).values({ toolId: tool.id }).run();
