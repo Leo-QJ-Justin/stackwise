@@ -4,13 +4,21 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Sparkles, Search, Link as LinkIcon, Merge, AlertTriangle } from "lucide-react";
-import type { SkillListItem } from "@/app/skills/page";
+import {
+  Sparkles,
+  Search,
+  Link as LinkIcon,
+  Merge,
+  AlertTriangle,
+  ChevronRight,
+  ChevronDown,
+} from "lucide-react";
+import type { SkillListItem, PluginGroup } from "@/lib/types";
 
-const TIER_COLORS: Record<number, { dot: string; text: string; bg: string }> = {
-  0: { dot: "bg-blue-500", text: "text-blue-400", bg: "bg-blue-500/10" },
-  1: { dot: "bg-violet-500", text: "text-violet-400", bg: "bg-violet-500/10" },
-  2: { dot: "bg-amber-500", text: "text-amber-400", bg: "bg-amber-500/10" },
+const TIER_COLORS: Record<number, { dot: string; text: string }> = {
+  0: { dot: "bg-blue-500", text: "text-blue-400" },
+  1: { dot: "bg-violet-500", text: "text-violet-400" },
+  2: { dot: "bg-amber-500", text: "text-amber-400" },
 };
 
 function tierColor(tier: number) {
@@ -27,6 +35,154 @@ interface Props {
   refreshKey: number;
 }
 
+function SkillRow({
+  skill,
+  isSelected,
+  composeMode,
+  isChecked,
+  onSelect,
+  onToggle,
+}: {
+  skill: SkillListItem;
+  isSelected: boolean;
+  composeMode: boolean;
+  isChecked: boolean;
+  onSelect: () => void;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      onClick={composeMode ? onToggle : onSelect}
+      className={`cursor-pointer flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors duration-150
+        ${isSelected && !composeMode ? "bg-accent text-accent-foreground" : "hover:bg-muted/60"}
+        ${isChecked && composeMode ? "bg-violet-500/15 ring-1 ring-violet-500/30" : ""}
+      `}
+    >
+      {composeMode && (
+        <div
+          className={`size-4 shrink-0 rounded border transition-colors ${
+            isChecked ? "border-violet-500 bg-violet-500" : "border-muted-foreground/30"
+          } flex items-center justify-center`}
+        >
+          {isChecked && (
+            <svg className="size-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          )}
+        </div>
+      )}
+
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5">
+          <span className="truncate font-mono text-[11px] font-medium text-foreground">
+            {skill.name}
+          </span>
+          {skill.tier > 0 && (
+            <span className={`shrink-0 font-mono text-[8px] font-bold ${tierColor(skill.tier).text}`}>
+              T{skill.tier}
+            </span>
+          )}
+          {skill.baseSkills.length > 0 && skill.status !== "active" && (
+            <AlertTriangle className="size-3 text-amber-500 shrink-0" />
+          )}
+        </div>
+
+        <div className="flex items-center gap-1.5 mt-0.5">
+          {skill.mergeType && (
+            <span
+              className={`inline-flex items-center gap-0.5 rounded px-1 py-0.5 font-mono text-[8px] font-bold uppercase ${
+                skill.mergeType === "orchestrator"
+                  ? "bg-emerald-500/15 text-emerald-400"
+                  : "bg-rose-500/15 text-rose-400"
+              }`}
+            >
+              {skill.mergeType === "orchestrator" ? (
+                <>
+                  <LinkIcon className="size-2" /> ORCH
+                </>
+              ) : (
+                <>
+                  <Merge className="size-2" /> MUT
+                </>
+              )}
+            </span>
+          )}
+          {skill.usedByCount > 0 && (
+            <span className="font-mono text-[9px] text-muted-foreground/50">
+              used by {skill.usedByCount}
+            </span>
+          )}
+        </div>
+      </div>
+    </button>
+  );
+}
+
+function PluginSection({
+  label,
+  skills,
+  isExpanded,
+  onToggleExpand,
+  selectedSkillId,
+  composeMode,
+  selectedBaseIds,
+  onSelectSkill,
+  onToggleBase,
+  accent,
+}: {
+  label: string;
+  skills: SkillListItem[];
+  isExpanded: boolean;
+  onToggleExpand: () => void;
+  selectedSkillId: number | null;
+  composeMode: boolean;
+  selectedBaseIds: number[];
+  onSelectSkill: (id: number) => void;
+  onToggleBase: (id: number) => void;
+  accent?: boolean;
+}) {
+  return (
+    <div className="mb-1">
+      <button
+        onClick={onToggleExpand}
+        className="cursor-pointer flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 hover:bg-muted/60 transition-colors"
+      >
+        {isExpanded ? (
+          <ChevronDown className="size-3 text-muted-foreground shrink-0" />
+        ) : (
+          <ChevronRight className="size-3 text-muted-foreground shrink-0" />
+        )}
+        <span
+          className={`font-mono text-[10px] font-semibold uppercase tracking-wider truncate ${
+            accent ? "text-violet-400" : "text-muted-foreground"
+          }`}
+        >
+          {label}
+        </span>
+        <span className="font-mono text-[10px] text-muted-foreground/50 shrink-0">
+          ({skills.length})
+        </span>
+      </button>
+
+      {isExpanded && (
+        <div className="ml-2">
+          {skills.map((skill) => (
+            <SkillRow
+              key={skill.id}
+              skill={skill}
+              isSelected={selectedSkillId === skill.id}
+              composeMode={composeMode}
+              isChecked={selectedBaseIds.includes(skill.id)}
+              onSelect={() => onSelectSkill(skill.id)}
+              onToggle={() => onToggleBase(skill.id)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function SkillsSidebar({
   selectedSkillId,
   onSelectSkill,
@@ -36,34 +192,55 @@ export function SkillsSidebar({
   onStartCompose,
   refreshKey,
 }: Props) {
-  const [skills, setSkills] = useState<SkillListItem[]>([]);
+  const [plugins, setPlugins] = useState<PluginGroup[]>([]);
+  const [standalone, setStandalone] = useState<SkillListItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [expanded, setExpanded] = useState<Set<string>>(new Set(["my-skills"]));
+
+  const toggleExpand = (key: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
 
   useEffect(() => {
     setLoading(true);
+    setError(null);
     fetch("/api/skills")
-      .then((r) => r.json())
-      .then((data) => {
-        setSkills(data.skills ?? []);
+      .then((r) => {
+        if (!r.ok) throw new Error(`Server error: ${r.status}`);
+        return r.json();
       })
-      .catch(() => {})
+      .then((data) => {
+        setPlugins(data.plugins ?? []);
+        setStandalone(data.standalone ?? []);
+      })
+      .catch((err) => {
+        console.error("[SkillsSidebar] Failed to fetch skills:", err);
+        setError("Failed to load skills");
+      })
       .finally(() => setLoading(false));
   }, [refreshKey]);
 
-  // Filter by search and only show active skills
-  const filtered = skills
-    .filter((s) => s.status === "active")
-    .filter((s) => !search || s.name.toLowerCase().includes(search.toLowerCase()));
+  // Apply search filter
+  const matchesSearch = (s: SkillListItem) =>
+    !search || s.name.toLowerCase().includes(search.toLowerCase());
 
-  // Group by tier
-  const grouped = new Map<number, SkillListItem[]>();
-  for (const skill of filtered) {
-    const tier = skill.tier ?? 0;
-    if (!grouped.has(tier)) grouped.set(tier, []);
-    grouped.get(tier)!.push(skill);
-  }
-  const sortedTiers = [...grouped.keys()].sort((a, b) => a - b);
+  const filteredStandalone = standalone.filter(matchesSearch);
+  const filteredPlugins = plugins
+    .map((p) => ({ ...p, skills: p.skills.filter(matchesSearch) }))
+    .filter((p) => p.skills.length > 0);
+
+  const totalSkills =
+    filteredStandalone.length +
+    filteredPlugins.reduce((sum, p) => sum + p.skills.length, 0);
+
+  // Auto-expand groups that contain search matches
+  const isExpanded = (key: string) => (search ? true : expanded.has(key));
 
   return (
     <div className="flex w-72 flex-col border-r border-border bg-muted/20">
@@ -98,95 +275,54 @@ export function SkillsSidebar({
                 <div key={i} className="h-8 rounded bg-muted animate-pulse" />
               ))}
             </div>
-          ) : filtered.length === 0 ? (
+          ) : error ? (
+            <div className="p-4 text-center">
+              <p className="font-mono text-xs text-red-400">{error}</p>
+              <button
+                onClick={() => setLoading(true)}
+                className="cursor-pointer mt-2 font-mono text-[10px] text-muted-foreground hover:text-foreground"
+              >
+                Retry
+              </button>
+            </div>
+          ) : totalSkills === 0 ? (
             <p className="p-4 text-center font-mono text-xs text-muted-foreground">
               {search ? "No matching skills" : "No skills found. Run a scan first."}
             </p>
           ) : (
-            sortedTiers.map((tier) => (
-              <div key={tier} className="mb-3">
-                {/* Tier header */}
-                <div className="flex items-center gap-2 px-2 py-1.5">
-                  <span className={`size-2 rounded-full ${tierColor(tier).dot}`} />
-                  <span className={`font-mono text-[10px] font-semibold uppercase tracking-wider ${tierColor(tier).text}`}>
-                    Tier {tier} {tier === 0 ? "— Base" : tier === 1 ? "— Composite" : "— Advanced"}
-                  </span>
-                  <span className="font-mono text-[10px] text-muted-foreground/50">
-                    ({grouped.get(tier)!.length})
-                  </span>
-                </div>
+            <>
+              {/* My Skills (standalone / self-created) */}
+              {filteredStandalone.length > 0 && (
+                <PluginSection
+                  label="My Skills"
+                  skills={filteredStandalone}
+                  isExpanded={isExpanded("my-skills")}
+                  onToggleExpand={() => toggleExpand("my-skills")}
+                  selectedSkillId={selectedSkillId}
+                  composeMode={composeMode}
+                  selectedBaseIds={selectedBaseIds}
+                  onSelectSkill={onSelectSkill}
+                  onToggleBase={onToggleBase}
+                  accent
+                />
+              )}
 
-                {/* Skill items */}
-                {grouped.get(tier)!.map((skill) => {
-                  const isSelected = selectedSkillId === skill.id;
-                  const isChecked = selectedBaseIds.includes(skill.id);
-                  const isBroken = skill.baseSkills.length > 0 && skill.status !== "active";
-
-                  return (
-                    <button
-                      key={skill.id}
-                      onClick={() => {
-                        if (composeMode) {
-                          onToggleBase(skill.id);
-                        } else {
-                          onSelectSkill(skill.id);
-                        }
-                      }}
-                      className={`cursor-pointer flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors duration-150
-                        ${isSelected && !composeMode ? "bg-accent text-accent-foreground" : "hover:bg-muted/60"}
-                        ${isChecked && composeMode ? "bg-violet-500/15 ring-1 ring-violet-500/30" : ""}
-                      `}
-                    >
-                      {/* Checkbox in compose mode */}
-                      {composeMode && (
-                        <div className={`size-4 shrink-0 rounded border transition-colors ${
-                          isChecked
-                            ? "border-violet-500 bg-violet-500"
-                            : "border-muted-foreground/30"
-                        } flex items-center justify-center`}>
-                          {isChecked && (
-                            <svg className="size-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                            </svg>
-                          )}
-                        </div>
-                      )}
-
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5">
-                          <span className="truncate font-mono text-[11px] font-medium text-foreground">
-                            {skill.name}
-                          </span>
-                          {isBroken && <AlertTriangle className="size-3 text-amber-500 shrink-0" />}
-                        </div>
-
-                        {/* Merge type + used by count */}
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          {skill.mergeType && (
-                            <span className={`inline-flex items-center gap-0.5 rounded px-1 py-0.5 font-mono text-[8px] font-bold uppercase ${
-                              skill.mergeType === "orchestrator"
-                                ? "bg-emerald-500/15 text-emerald-400"
-                                : "bg-rose-500/15 text-rose-400"
-                            }`}>
-                              {skill.mergeType === "orchestrator" ? (
-                                <><LinkIcon className="size-2" /> ORCH</>
-                              ) : (
-                                <><Merge className="size-2" /> MUT</>
-                              )}
-                            </span>
-                          )}
-                          {skill.usedByCount > 0 && (
-                            <span className="font-mono text-[9px] text-muted-foreground/50">
-                              used by {skill.usedByCount}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            ))
+              {/* Plugin groups */}
+              {filteredPlugins.map((plugin) => (
+                <PluginSection
+                  key={plugin.id}
+                  label={plugin.name}
+                  skills={plugin.skills}
+                  isExpanded={isExpanded(`plugin-${plugin.id}`)}
+                  onToggleExpand={() => toggleExpand(`plugin-${plugin.id}`)}
+                  selectedSkillId={selectedSkillId}
+                  composeMode={composeMode}
+                  selectedBaseIds={selectedBaseIds}
+                  onSelectSkill={onSelectSkill}
+                  onToggleBase={onToggleBase}
+                />
+              ))}
+            </>
           )}
         </div>
       </ScrollArea>

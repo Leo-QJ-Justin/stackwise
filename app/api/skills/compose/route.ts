@@ -26,6 +26,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (mergeType !== "orchestrator" && mergeType !== "mutation") {
+      return NextResponse.json(
+        { error: "mergeType must be 'orchestrator' or 'mutation'" },
+        { status: 400 }
+      );
+    }
+
+    if (!Array.isArray(baseSkillIds) || !baseSkillIds.every((id: unknown) => Number.isInteger(id))) {
+      return NextResponse.json(
+        { error: "baseSkillIds must be an array of integers" },
+        { status: 400 }
+      );
+    }
+
     // Read base skill contents
     const baseSkills: { name: string; content: string }[] = [];
     for (const id of baseSkillIds) {
@@ -93,8 +107,9 @@ Create the composite skill "${name}" as described above.`;
       try {
         const parsed = JSON.parse(generatedContent);
         generatedContent = String(parsed.result ?? generatedContent);
-      } catch {
-        // Use raw output
+      } catch (parseErr) {
+        console.warn("[skills/compose] CLI output is not JSON, using raw output:",
+          (parseErr as Error).message);
       }
     } else {
       const model = await createModel(providerId, apiKey, modelId);

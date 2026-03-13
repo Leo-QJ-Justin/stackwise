@@ -4,27 +4,7 @@ import { useEffect, useState } from "react";
 import { AlertTriangle, Link as LinkIcon, Merge } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-
-interface GraphNode {
-  id: number;
-  name: string;
-  tier: number;
-  mergeType: string | null;
-  position?: number;
-  status?: string;
-}
-
-interface GraphData {
-  skill: GraphNode & {
-    description: string | null;
-    skillPath: string | null;
-    generationPrompt: string | null;
-    capabilityType: string;
-    source: string;
-  };
-  dependsOn: GraphNode[];
-  usedBy: GraphNode[];
-}
+import type { GraphData } from "@/lib/types";
 
 const TIER_NODE_COLORS: Record<number, { bg: string; border: string; text: string }> = {
   0: { bg: "bg-blue-500/10", border: "border-blue-500/30", text: "text-blue-400" },
@@ -45,13 +25,26 @@ interface Props {
 export function FocusGraph({ skillId, onNavigate, refreshKey }: Props) {
   const [data, setData] = useState<GraphData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
+    setError(null);
     fetch(`/api/skills/${skillId}/graph`)
-      .then((r) => r.ok ? r.json() : null)
-      .then((d) => { setData(d); setLoading(false); })
-      .catch(() => { setData(null); setLoading(false); });
+      .then(async (r) => {
+        if (!r.ok) {
+          const body = await r.json().catch(() => ({}));
+          throw new Error(body.error ?? `Server error: ${r.status}`);
+        }
+        return r.json();
+      })
+      .then((d) => { setData(d); })
+      .catch((err) => {
+        console.error("[FocusGraph] Failed to load graph:", err);
+        setData(null);
+        setError(err instanceof Error ? err.message : "Failed to load graph data");
+      })
+      .finally(() => setLoading(false));
   }, [skillId, refreshKey]);
 
   if (loading) {
@@ -65,7 +58,7 @@ export function FocusGraph({ skillId, onNavigate, refreshKey }: Props) {
   if (!data) {
     return (
       <div className="flex flex-1 items-center justify-center">
-        <p className="font-mono text-sm text-muted-foreground">Failed to load graph data</p>
+        <p className="font-mono text-sm text-red-400">{error ?? "Failed to load graph data"}</p>
       </div>
     );
   }

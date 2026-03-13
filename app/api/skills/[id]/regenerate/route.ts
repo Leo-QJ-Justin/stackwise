@@ -6,6 +6,7 @@ import { getSetting } from "@/lib/settings";
 import { getProvider } from "@/lib/shared";
 import { createModel, classifyViaCLI } from "@/lib/providers";
 import { generateText } from "ai";
+import { isIntegerArray } from "@/lib/types";
 import fs from "fs";
 
 // POST /api/skills/[id]/regenerate — re-generate composite content
@@ -16,6 +17,10 @@ export async function POST(
   try {
     const { id: idStr } = await params;
     const id = parseInt(idStr, 10);
+    if (isNaN(id)) {
+      return NextResponse.json({ error: "Invalid skill ID" }, { status: 400 });
+    }
+
     const skill = db.select().from(toolsRegistry).where(eq(toolsRegistry.id, id)).get();
 
     if (!skill) {
@@ -28,11 +33,21 @@ export async function POST(
       intent: string;
     };
 
+    if (!baseSkillIds?.length || !intent) {
+      return NextResponse.json({ error: "Missing required fields: baseSkillIds, intent" }, { status: 400 });
+    }
+
+    if (!isIntegerArray(baseSkillIds)) {
+      return NextResponse.json({ error: "baseSkillIds must be an array of integers" }, { status: 400 });
+    }
+
     // Read base skill contents
     const baseSkills: { name: string; content: string }[] = [];
     for (const baseId of baseSkillIds) {
       const base = db.select().from(toolsRegistry).where(eq(toolsRegistry.id, baseId)).get();
-      if (!base) continue;
+      if (!base) {
+        return NextResponse.json({ error: `Base skill #${baseId} not found — it may have been deleted` }, { status: 404 });
+      }
 
       let content = "";
       if (base.skillPath && fs.existsSync(base.skillPath)) {
@@ -71,7 +86,10 @@ export async function POST(
       try {
         const parsed = JSON.parse(generatedContent);
         generatedContent = String(parsed.result ?? generatedContent);
-      } catch { /* use raw */ }
+      } catch (parseErr) {
+        console.warn("[skills/regenerate] CLI output is not JSON, using raw output:",
+          (parseErr as Error).message);
+      }
     } else {
       const model = await createModel(providerId, apiKey, modelId);
       const { text } = await generateText({ model, system: systemPrompt, prompt: userPrompt });

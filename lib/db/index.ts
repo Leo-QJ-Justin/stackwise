@@ -82,7 +82,9 @@ sqlite.exec(`
     position integer NOT NULL,
     added_at text NOT NULL DEFAULT (CURRENT_TIMESTAMP),
     FOREIGN KEY (composite_skill_id) REFERENCES tools_registry(id),
-    FOREIGN KEY (base_skill_id) REFERENCES tools_registry(id)
+    FOREIGN KEY (base_skill_id) REFERENCES tools_registry(id),
+    UNIQUE (composite_skill_id, base_skill_id),
+    UNIQUE (composite_skill_id, position)
   );
 `);
 
@@ -97,7 +99,15 @@ const newColumns = [
   "ALTER TABLE tools_registry ADD COLUMN generation_prompt text",
 ];
 for (const ddl of newColumns) {
-  try { sqlite.exec(ddl); } catch { /* column already exists */ }
+  try {
+    sqlite.exec(ddl);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (!msg.includes("duplicate column name")) {
+      console.error(`[db/migration] DDL failed: ${ddl}`, err);
+      throw err;
+    }
+  }
 }
 
 export const db = drizzle(sqlite, { schema });

@@ -1,52 +1,101 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { toolsRegistry, skillCompositions } from "@/lib/db/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 
-// GET /api/skills — list all skills with composition data
-export async function GET(request: NextRequest) {
+// GET /api/skills — list active skills grouped by parent plugin
+export async function GET() {
   try {
-    const { searchParams } = new URL(request.url);
-    const source = searchParams.get("source");
+    // 1. Fetch only active skills
+    const skills = db
+      .select()
+      .from(toolsRegistry)
+      .where(
+        and(
+          eq(toolsRegistry.capabilityType, "skill"),
+          eq(toolsRegistry.status, "active"),
+        )
+      )
+      .all();
 
-    let skills;
-    if (source) {
-      skills = db
-        .select()
-        .from(toolsRegistry)
-        .where(eq(toolsRegistry.source, source))
-        .all();
-    } else {
-      skills = db.select().from(toolsRegistry).all();
+    // 2. Batch-load composition edges and usedBy counts
+    const allEdges = db
+      .select({
+        compositeSkillId: skillCompositions.compositeSkillId,
+        baseSkillId: skillCompositions.baseSkillId,
+        baseName: toolsRegistry.name,
+        position: skillCompositions.position,
+      })
+      .from(skillCompositions)
+      .innerJoin(toolsRegistry, eq(skillCompositions.baseSkillId, toolsRegistry.id))
+      .orderBy(skillCompositions.position)
+      .all();
+
+    const edgesByComposite = new Map<number, { id: number; name: string; position: number }[]>();
+    const usedByCounts = new Map<number, number>();
+
+    for (const edge of allEdges) {
+      if (!edgesByComposite.has(edge.compositeSkillId)) {
+        edgesByComposite.set(edge.compositeSkillId, []);
+      }
+      edgesByComposite.get(edge.compositeSkillId)!.push({
+        id: edge.baseSkillId,
+        name: edge.baseName,
+        position: edge.position,
+      });
+      usedByCounts.set(edge.baseSkillId, (usedByCounts.get(edge.baseSkillId) ?? 0) + 1);
     }
 
-    const enriched = skills.map((skill) => {
-      const baseSkills = db
-        .select({
-          id: skillCompositions.baseSkillId,
-          name: toolsRegistry.name,
-          position: skillCompositions.position,
-        })
-        .from(skillCompositions)
-        .innerJoin(toolsRegistry, eq(skillCompositions.baseSkillId, toolsRegistry.id))
-        .where(eq(skillCompositions.compositeSkillId, skill.id))
-        .orderBy(skillCompositions.position)
+    // 3. Enrich skills with composition data
+    const enriched = skills.map((skill) => ({
+      ...skill,
+      baseSkills: edgesByComposite.get(skill.id) ?? [],
+      usedByCount: usedByCounts.get(skill.id) ?? 0,
+    }));
+
+    // 4. Collect distinct parentPluginIds and batch-fetch plugin names
+    const parentIds = [...new Set(
+      enriched.filter((s) => s.parentPluginId != null).map((s) => s.parentPluginId!)
+    )];
+
+    const pluginMap = new Map<number, { id: number; name: string }>();
+    if (parentIds.length > 0) {
+      const parents = db
+        .select({ id: toolsRegistry.id, name: toolsRegistry.name })
+        .from(toolsRegistry)
+        .where(inArray(toolsRegistry.id, parentIds))
         .all();
+      for (const p of parents) {
+        pluginMap.set(p.id, p);
+      }
+    }
 
-      const usedByRow = db
-        .select({ count: sql<number>`count(*)` })
-        .from(skillCompositions)
-        .where(eq(skillCompositions.baseSkillId, skill.id))
-        .get();
+    // 5. Group into plugins[] and standalone[]
+    const pluginGroups = new Map<number, typeof enriched>();
+    const standalone: typeof enriched = [];
 
-      return {
-        ...skill,
-        baseSkills,
-        usedByCount: usedByRow?.count ?? 0,
-      };
-    });
+    for (const skill of enriched) {
+      if (skill.parentPluginId != null && pluginMap.has(skill.parentPluginId)) {
+        if (!pluginGroups.has(skill.parentPluginId)) {
+          pluginGroups.set(skill.parentPluginId, []);
+        }
+        pluginGroups.get(skill.parentPluginId)!.push(skill);
+      } else {
+        standalone.push(skill);
+      }
+    }
 
-    return NextResponse.json({ skills: enriched });
+    const plugins = [...pluginGroups.entries()].map(([parentId, groupSkills]) => ({
+      id: parentId,
+      name: pluginMap.get(parentId)!.name,
+      skills: groupSkills,
+    }));
+
+    // Sort plugins alphabetically, standalone by name
+    plugins.sort((a, b) => a.name.localeCompare(b.name));
+    standalone.sort((a, b) => a.name.localeCompare(b.name));
+
+    return NextResponse.json({ plugins, standalone });
   } catch (error) {
     console.error("[skills] Failed to fetch skills:", error);
     return NextResponse.json(
