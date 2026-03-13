@@ -34,6 +34,27 @@ export function getProvider(id: string): ProviderConfig | undefined {
   return PROVIDERS.find((p) => p.id === id);
 }
 
+/**
+ * Keyword-based fallback categorizer for when AI classification is unavailable.
+ */
+export function inferCategory(name: string, description?: string): string {
+  const text = `${name} ${description ?? ""}`.toLowerCase();
+
+  const rules: [string, RegExp][] = [
+    ["UI & Frontend", /\b(ui|ux|frontend|design|css|component|layout|theme|style|color|font|visual|canvas|art|poster|gif|animation)\b/],
+    ["Integrations", /\b(mcp|github|slack|api|database|connector|integrations?|webhooks?|n8n|workflow.?automation)\b/],
+    ["Workflow & Agents", /\b(planning|plans?|agents?|reviews?|debug|execute|orchestrat|pipelines?|branch|commit|git|worktree|subagents?|superpowers?|tdd|test.driven)/],
+    ["Skills & File Handling", /\b(skills?|pdf|docx|xlsx|pptx|spreadsheet|documents?|slides?|presentations?|files?|templates?|brand|word)\b/],
+    ["Prompting & Context", /\b(context|memory|mem\b|prompt|knowledge|retrieval|documentation|search|lookup|memo)/],
+    ["Research & Knowledge", /\b(research|web.?search|data.?analysis|summariz)/],
+  ];
+
+  for (const [category, pattern] of rules) {
+    if (pattern.test(text)) return category;
+  }
+  return "Unclassified";
+}
+
 export function parseProvides(raw: string | null): string[] {
   if (!raw) return [];
   try {

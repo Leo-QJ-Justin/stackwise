@@ -58,6 +58,7 @@ const CATEGORY_BORDER_COLOR: Record<string, string> = {
   "Prompting & Context": "border-l-rose-500",
   "Research & Knowledge": "border-l-cyan-500",
   "UI & Frontend": "border-l-pink-500",
+  "Unclassified": "border-l-gray-500",
 };
 
 const CATEGORY_TOP_COLOR: Record<string, string> = {
@@ -68,6 +69,7 @@ const CATEGORY_TOP_COLOR: Record<string, string> = {
   "Prompting & Context": "border-t-rose-500",
   "Research & Knowledge": "border-t-cyan-500",
   "UI & Frontend": "border-t-pink-500",
+  "Unclassified": "border-t-gray-500",
 };
 
 const CATEGORY_DOT_COLOR: Record<string, string> = {
@@ -78,6 +80,7 @@ const CATEGORY_DOT_COLOR: Record<string, string> = {
   "Prompting & Context": "bg-rose-500",
   "Research & Knowledge": "bg-cyan-500",
   "UI & Frontend": "bg-pink-500",
+  "Unclassified": "bg-gray-500",
 };
 
 interface StackItem {
@@ -134,7 +137,10 @@ function usePluginChildren(pluginId: number) {
     if (pluginId < 0) return;
     let cancelled = false;
     fetch(`/api/tools?parent_plugin_id=${pluginId}&status=active`)
-      .then((res) => res.ok ? res.json() : [])
+      .then((res) => {
+        if (!res.ok) throw new Error(`Server error: ${res.status}`);
+        return res.json();
+      })
       .then((data) => {
         if (!cancelled) {
           setChildren(data.map((t: ToolData) => ({
@@ -146,7 +152,10 @@ function usePluginChildren(pluginId: number) {
           setLoaded(true);
         }
       })
-      .catch(() => { if (!cancelled) setLoaded(true); });
+      .catch((err) => {
+        console.error(`[usePluginChildren] Failed for plugin #${pluginId}:`, err);
+        if (!cancelled) setLoaded(true);
+      });
     return () => { cancelled = true; };
   }, [pluginId]);
 

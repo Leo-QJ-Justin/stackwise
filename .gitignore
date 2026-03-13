@@ -35,3 +35,6 @@ plans/
 
 # Worktrees
 .worktrees/
+
+# Superpowers
+.superpowers/

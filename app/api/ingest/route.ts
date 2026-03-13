@@ -7,6 +7,7 @@ import {
 } from "@/lib/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { classifyAndStore } from "@/lib/classify";
+import { inferCategory } from "@/lib/shared";
 
 // POST /api/ingest — receive processed content from n8n automation pipeline
 export async function POST(request: NextRequest) {
@@ -139,7 +140,7 @@ export async function POST(request: NextRequest) {
             name: trimmed,
             status: "unclassified",
             source: "community",
-            category: "Development",
+            category: inferCategory(trimmed),
           })
           .returning()
           .all();
