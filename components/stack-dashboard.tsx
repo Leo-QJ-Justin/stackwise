@@ -37,6 +37,17 @@ interface ToolData {
   source?: string | null;
   verdictReason?: string | null;
   replacesToolId?: number | null;
+  capabilityType?: string | null;
+  parentPluginId?: number | null;
+  skillPath?: string | null;
+  frontmatter?: string | null;
+}
+
+interface ChildSkill {
+  id: number;
+  name: string;
+  description: string | null;
+  capabilityType: string;
 }
 
 const CATEGORY_BORDER_COLOR: Record<string, string> = {
@@ -87,6 +98,151 @@ function ProvidesHint({ provides }: { provides: string }) {
   );
 }
 
+// ── Capability type icon ──────────────────────────────────────
+function CapabilityTypeIcon({ type }: { type: string }) {
+  const base = "shrink-0 flex items-center justify-center rounded font-mono font-bold";
+  switch (type) {
+    case "skill":
+      return (
+        <span className={`${base} size-5 text-[8px] bg-blue-500/10 text-blue-400 border border-blue-500/20`}>
+          S
+        </span>
+      );
+    case "mcp_server":
+      return (
+        <span className={`${base} size-5 text-[6px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20`}>
+          MCP
+        </span>
+      );
+    case "command":
+      return (
+        <span className={`${base} size-5 text-[8px] bg-indigo-500/10 text-indigo-400 border border-indigo-500/20`}>
+          C
+        </span>
+      );
+    default:
+      return null;
+  }
+}
+
+// ── Expandable plugin skill list ─────────────────────────────
+function usePluginChildren(pluginId: number) {
+  const [children, setChildren] = useState<ChildSkill[]>([]);
+  const [loaded, setLoaded] = useState(pluginId < 0);
+
+  useEffect(() => {
+    if (pluginId < 0) return;
+    let cancelled = false;
+    fetch(`/api/tools?parent_plugin_id=${pluginId}&status=active`)
+      .then((res) => res.ok ? res.json() : [])
+      .then((data) => {
+        if (!cancelled) {
+          setChildren(data.map((t: ToolData) => ({
+            id: t.id,
+            name: t.name,
+            description: t.description,
+            capabilityType: t.capabilityType ?? "skill",
+          })));
+          setLoaded(true);
+        }
+      })
+      .catch(() => { if (!cancelled) setLoaded(true); });
+    return () => { cancelled = true; };
+  }, [pluginId]);
+
+  return { children, loaded };
+}
+
+function PluginSkillBadge({
+  children: childSkills,
+  expanded,
+  onToggle,
+}: {
+  children: ChildSkill[];
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  if (childSkills.length === 0) return null;
+
+  const typeCounts = childSkills.reduce<Record<string, number>>((acc, c) => {
+    acc[c.capabilityType] = (acc[c.capabilityType] ?? 0) + 1;
+    return acc;
+  }, {});
+  const badgeParts: string[] = [];
+  if (typeCounts.skill) badgeParts.push(`${typeCounts.skill} skill${typeCounts.skill > 1 ? "s" : ""}`);
+  if (typeCounts.mcp_server) badgeParts.push(`${typeCounts.mcp_server} MCP`);
+  if (typeCounts.command) badgeParts.push(`${typeCounts.command} cmd${typeCounts.command > 1 ? "s" : ""}`);
+  const badgeText = badgeParts.join(" + ");
+
+  return (
+    <button
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onToggle();
+      }}
+      className="cursor-pointer ml-1 inline-flex items-center gap-1.5 rounded-full border border-violet-500/25 bg-violet-500/10 px-2 py-0.5 text-[9px] font-mono font-medium text-violet-300 hover:bg-violet-500/20 transition-colors"
+    >
+      {badgeText}
+      <span className={`text-[8px] transition-transform duration-200 ${expanded ? "rotate-90" : ""}`}>
+        &#9654;
+      </span>
+    </button>
+  );
+}
+
+function PluginSkillPanel({ children: childSkills }: { children: ChildSkill[] }) {
+  const [showAll, setShowAll] = useState(false);
+  const INITIAL_SHOW = 4;
+  const visibleChildren = showAll ? childSkills : childSkills.slice(0, INITIAL_SHOW);
+  const remaining = childSkills.length - INITIAL_SHOW;
+
+  return (
+    <div className="px-3 pb-2 pl-9">
+      <div className="space-y-0.5 border-l-2 border-violet-500/15 pl-3">
+        <span className="block font-mono text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/50 mb-1">
+          Discovered capabilities
+        </span>
+        {visibleChildren.map((child) => (
+          <Link
+            key={child.id}
+            href={`/tools/${child.id}`}
+            className="group/skill flex items-center gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-muted/40 cursor-pointer"
+          >
+            <CapabilityTypeIcon type={child.capabilityType} />
+            <div className="min-w-0 flex-1">
+              <span className="font-mono text-[11px] font-medium text-foreground group-hover/skill:text-primary transition-colors">
+                {child.name}
+              </span>
+              {child.description && (
+                <span className="ml-2 text-[10px] text-muted-foreground/60 truncate">
+                  {child.description.length > 60 ? child.description.slice(0, 60) + "..." : child.description}
+                </span>
+              )}
+            </div>
+          </Link>
+        ))}
+        {remaining > 0 && !showAll && (
+          <button
+            onClick={() => setShowAll(true)}
+            className="cursor-pointer font-mono text-[10px] text-blue-400 hover:text-blue-300 px-2 py-1 transition-colors"
+          >
+            + {remaining} more
+          </button>
+        )}
+        {showAll && remaining > 0 && (
+          <button
+            onClick={() => setShowAll(false)}
+            className="cursor-pointer font-mono text-[10px] text-muted-foreground hover:text-foreground px-2 py-1 transition-colors"
+          >
+            Show less
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Draggable tool card ─────────────────────────────────────────
 function DraggableToolRow({
   item,
@@ -104,6 +260,12 @@ function DraggableToolRow({
 
   const [editingNotes, setEditingNotes] = useState(false);
   const [draft, setDraft] = useState(item.notes ?? "");
+  const [skillsExpanded, setSkillsExpanded] = useState(false);
+
+  const isPlugin = !item.tool.capabilityType || item.tool.capabilityType === "plugin";
+  const { children: pluginChildren, loaded: childrenLoaded } = usePluginChildren(
+    isPlugin ? item.tool.id : -1
+  );
 
   const handleSave = () => {
     onUpdateNotes(item.tool.id, draft);
@@ -162,6 +324,15 @@ function DraggableToolRow({
               )}
             </div>
           </Link>
+          {/* Skill count badge for plugins */}
+          {isPlugin && childrenLoaded && pluginChildren.length > 0 && (
+            <PluginSkillBadge
+              expanded={skillsExpanded}
+              onToggle={() => setSkillsExpanded(!skillsExpanded)}
+            >
+              {pluginChildren}
+            </PluginSkillBadge>
+          )}
           <Button
             size="xs"
             variant="ghost"
@@ -229,6 +400,11 @@ function DraggableToolRow({
             </button>
           )}
         </div>
+
+        {/* Expanded plugin skills panel */}
+        {isPlugin && skillsExpanded && pluginChildren.length > 0 && (
+          <PluginSkillPanel>{pluginChildren}</PluginSkillPanel>
+        )}
       </div>
     </div>
   );

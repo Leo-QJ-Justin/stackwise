@@ -9,6 +9,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
     const category = searchParams.get("category");
+    const capabilityType = searchParams.get("capability_type");
+    const parentPluginId = searchParams.get("parent_plugin_id");
 
     const conditions = [];
     if (status) {
@@ -16,6 +18,12 @@ export async function GET(request: NextRequest) {
     }
     if (category) {
       conditions.push(eq(toolsRegistry.category, category));
+    }
+    if (capabilityType) {
+      conditions.push(eq(toolsRegistry.capabilityType, capabilityType));
+    }
+    if (parentPluginId) {
+      conditions.push(eq(toolsRegistry.parentPluginId, parseInt(parentPluginId, 10)));
     }
 
     const tools =

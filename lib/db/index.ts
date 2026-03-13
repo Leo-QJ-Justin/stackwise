@@ -29,7 +29,11 @@ sqlite.exec(`
     times_mentioned integer NOT NULL DEFAULT 1,
     last_updated text NOT NULL DEFAULT (CURRENT_TIMESTAMP),
     canonical_url text,
-    replaces_tool_id integer REFERENCES tools_registry(id)
+    replaces_tool_id integer REFERENCES tools_registry(id),
+    capability_type text NOT NULL DEFAULT 'plugin',
+    parent_plugin_id integer,
+    skill_path text,
+    frontmatter text
   );
   CREATE TABLE IF NOT EXISTS stack_items (
     id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -72,5 +76,16 @@ sqlite.exec(`
     FOREIGN KEY (new_tool_id) REFERENCES tools_registry(id)
   );
 `);
+
+// Migrate existing databases: add new columns for skill discovery
+const newColumns = [
+  "ALTER TABLE tools_registry ADD COLUMN capability_type text NOT NULL DEFAULT 'plugin'",
+  "ALTER TABLE tools_registry ADD COLUMN parent_plugin_id integer",
+  "ALTER TABLE tools_registry ADD COLUMN skill_path text",
+  "ALTER TABLE tools_registry ADD COLUMN frontmatter text",
+];
+for (const ddl of newColumns) {
+  try { sqlite.exec(ddl); } catch { /* column already exists */ }
+}
 
 export const db = drizzle(sqlite, { schema });

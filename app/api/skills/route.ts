@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { toolsRegistry } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 
-// GET /api/skills — list tools where source = "self_created"
+// GET /api/skills — list all composable units (skills, MCP servers, commands)
 export async function GET() {
   try {
     const skills = await db
       .select()
       .from(toolsRegistry)
-      .where(eq(toolsRegistry.source, "self_created"));
+      .where(sql`${toolsRegistry.capabilityType} IN ('skill', 'mcp_server', 'command')`);
 
     return NextResponse.json(skills);
   } catch (error) {
