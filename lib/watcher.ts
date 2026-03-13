@@ -131,10 +131,12 @@ async function handlePluginsChange(filePath: string) {
       pluginKeys.map((key) => formatName(key))
     );
 
+    // Only check top-level plugins for uninstall detection.
+    // Child capabilities (skills, commands, mcp_servers) are managed by the scan's reconcileChildren.
     const installedTools = db
       .select()
       .from(toolsRegistry)
-      .where(sql`${toolsRegistry.source} = 'installed' AND ${toolsRegistry.status} = 'active'`)
+      .where(sql`${toolsRegistry.source} = 'installed' AND ${toolsRegistry.status} = 'active' AND ${toolsRegistry.capabilityType} = 'plugin'`)
       .all();
 
     for (const tool of installedTools) {

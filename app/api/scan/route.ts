@@ -82,12 +82,13 @@ function discoverPluginChildren(
             .get();
 
           if (existing) {
-            // Update existing entry (plugin may have been updated)
+            // Update existing entry (plugin may have been updated) and ensure it's active
             db.update(toolsRegistry)
               .set({
                 skillPath: skillMdPath,
                 frontmatter: JSON.stringify(fm),
                 description,
+                status: "active",
                 lastUpdated: sql`(CURRENT_TIMESTAMP)`,
               })
               .where(eq(toolsRegistry.id, existing.id))
@@ -151,6 +152,7 @@ function discoverPluginChildren(
                 skillPath: cmdPath,
                 frontmatter: JSON.stringify(fm),
                 description,
+                status: "active",
                 lastUpdated: sql`(CURRENT_TIMESTAMP)`,
               })
               .where(eq(toolsRegistry.id, existing.id))

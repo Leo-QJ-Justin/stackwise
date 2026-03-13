@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { TopBar } from "@/components/top-bar";
 import { SkillsSidebar } from "@/components/skills-lab/skills-sidebar";
 import { FocusGraph } from "@/components/skills-lab/focus-graph";
 import { ComposeDrawer } from "@/components/skills-lab/compose-drawer";
 import { SkillDetailHeader } from "@/components/skills-lab/skill-detail-header";
+import { useScan } from "@/components/scan-provider";
 
 export default function SkillsPage() {
   const [selectedSkillId, setSelectedSkillId] = useState<number | null>(null);
@@ -14,7 +15,13 @@ export default function SkillsPage() {
   const [extendingSkillId, setExtendingSkillId] = useState<number | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
+  const { addScanListener } = useScan();
+
   const refresh = useCallback(() => setRefreshKey((k) => k + 1), []);
+
+  useEffect(() => {
+    return addScanListener(refresh);
+  }, [addScanListener, refresh]);
 
   const handleCompose = () => {
     setComposeMode(true);

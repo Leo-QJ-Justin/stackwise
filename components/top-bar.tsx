@@ -1,105 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { RefreshCw, Download, Settings, History, Sparkles } from "lucide-react";
 import { SearchModal } from "@/components/search-modal";
+import { useScan } from "@/components/scan-provider";
 
-interface TopBarProps {
-  onScanComplete?: () => void;
-}
-
-export function TopBar({ onScanComplete }: TopBarProps) {
-  const [scanning, setScanning] = useState(false);
-  const [scanStatus, setScanStatus] = useState<string | null>(null);
-  const [unclassifiedCount, setUnclassifiedCount] = useState(0);
-
-  useEffect(() => {
-    fetch("/api/scan")
-      .then((res) => res.json())
-      .then((data) => setUnclassifiedCount(data.unclassifiedCount ?? 0))
-      .catch(() => {});
-  }, [scanning]);
-
-  // Auto-scan on first load if DB is empty (ref prevents React strict mode double-fire)
-  const autoScannedRef = useRef(false);
-  useEffect(() => {
-    if (autoScannedRef.current || scanning) return;
-    autoScannedRef.current = true;
-    fetch("/api/stack")
-      .then((res) => res.json())
-      .then((data) => {
-        if (Array.isArray(data) && data.length === 0) {
-          handleScan();
-        } else {
-          autoScannedRef.current = false;
-        }
-      })
-      .catch(() => { autoScannedRef.current = false; });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  async function handleScan() {
-    setScanning(true);
-    setScanStatus(null);
-
-    try {
-      const res = await fetch("/api/scan", { method: "POST" });
-      if (!res.body) {
-        setScanStatus("No response");
-        return;
-      }
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n\n");
-        buffer = lines.pop() ?? "";
-
-        for (const line of lines) {
-          const match = line.match(/^data:\s*(.+)$/);
-          if (!match) continue;
-
-          try {
-            const event = JSON.parse(match[1]);
-            if (event.type === "classifying") {
-              setScanStatus(`Classifying ${event.name}...`);
-            } else if (event.type === "classified") {
-              setScanStatus(`Classified: ${event.name} → ${event.category ?? "done"}`);
-              onScanComplete?.();
-            } else if (event.type === "fallback") {
-              setScanStatus(`Added: ${event.name} (classification failed)`);
-              onScanComplete?.();
-            } else if (event.type === "phase") {
-              setScanStatus(`Reclassifying ${event.total} tools...`);
-            } else if (event.type === "warning" && event.name) {
-              setScanStatus(`Warning: ${event.name} — ${event.warning}`);
-            } else if (event.type === "error" && event.name) {
-              setScanStatus(`Failed: ${event.name}`);
-            } else if (event.type === "done") {
-              setScanStatus(`Done — ${event.classified} classified`);
-              onScanComplete?.();
-            }
-          } catch {
-            // ignore parse errors
-          }
-        }
-      }
-    } catch {
-      setScanStatus("Scan request failed");
-    } finally {
-      // Keep banner visible briefly so user sees the final status
-      await new Promise((r) => setTimeout(r, 3000));
-      setScanning(false);
-    }
-  }
+export function TopBar() {
+  const { scanning, scanStatus, unclassifiedCount, triggerScan } = useScan();
 
   return (
     <>
@@ -128,7 +36,7 @@ export function TopBar({ onScanComplete }: TopBarProps) {
             variant="outline"
             size="sm"
             className="cursor-pointer gap-1.5"
-            onClick={handleScan}
+            onClick={triggerScan}
             disabled={scanning}
           >
             <RefreshCw className={`size-3.5 ${scanning ? "animate-spin" : ""}`} />
