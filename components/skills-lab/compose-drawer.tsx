@@ -15,6 +15,8 @@ import {
   Loader2,
   Link as LinkIcon,
   Merge,
+  Copy,
+  Check,
 } from "lucide-react";
 
 
@@ -49,6 +51,7 @@ export function ComposeDrawer({
   const [skillDir, setSkillDir] = useState("~/.claude/skills");
   const [generatedContent, setGeneratedContent] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const [baseSkills, setBaseSkills] = useState<SkillInfo[]>([]);
 
   // Load base skill info
@@ -366,6 +369,20 @@ export function ComposeDrawer({
                 >
                   <Sparkles className="size-3" />
                   Regenerate
+                </Button>
+                <Button
+                  onClick={() => {
+                    navigator.clipboard.writeText(generatedContent);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  }}
+                  variant="outline"
+                  size="sm"
+                  className="cursor-pointer gap-1.5"
+                  disabled={!generatedContent}
+                >
+                  {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
+                  {copied ? "Copied" : "Copy"}
                 </Button>
                 <Button
                   onClick={handleSave}

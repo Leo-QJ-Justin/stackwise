@@ -63,6 +63,18 @@ The registry acts as a cache. As it grows, fewer LLM calls are needed — classi
 - **Stack verdicts** — every tool gets a reasoned verdict: NEW, DUPLICATE, ALTERNATIVE, or UNRELATED
 - **Multi-provider** — Claude CLI, Ollama (local), Anthropic, OpenAI, Gemini, Mistral, Bedrock, OpenRouter
 
+### Skills Lab
+- **Hierarchical sidebar** — skills grouped under their parent plugin as collapsible sections, with a dedicated "My Skills" group for self-created compositions
+- **Skill composition** — select base skills from your stack and combine them into higher-tier skills via two merge strategies:
+  - **Orchestrator** — a workflow that calls base skills in sequence
+  - **Mutation** — a fused skill that blends base skill capabilities
+- **LLM-powered generation** — describe what you want, select the base skills, and an LLM generates a complete SKILL.md
+- **Focus graph** — visual dependency graph showing what a skill depends on and what depends on it
+- **Tier system** — composed skills auto-calculate their tier (max base tier + 1, up to T10)
+- **Cycle detection** — prevents circular composition dependencies
+
+> **Workflow note:** StackWise generates skill content but does not install it directly. After composing a skill, copy the generated SKILL.md and paste it into a Claude Code session to install. This is intentional — StackWise is the design layer, Claude Code is the execution environment. The two complement each other: StackWise helps you plan and compose, Claude Code handles the filesystem and session context.
+
 ### Stack Management
 - **Drag-and-drop recategorization** — move tools between categories
 - **Swap tracking** — replace tools with a full audit trail (what changed and why)
@@ -111,14 +123,20 @@ Or use the dev script:
 stackwise/
 ├── app/                    Next.js pages and API routes
 │   ├── api/                REST endpoints (scan, stack, tools, stats, settings, ingest)
+│   │   └── skills/         Skill composition, save, regenerate, graph endpoints
+│   ├── skills/             Skills Lab page
 │   ├── settings/           Provider configuration
 │   ├── history/            Timeline view
 │   ├── tools/[id]/         Tool detail page
 │   └── export/             Stack export
-├── components/             Dashboard, search modal, stats bar, notifications
+├── components/
+│   ├── skills-lab/         Sidebar, compose drawer, focus graph, skill detail header
+│   └── ...                 Dashboard, search modal, stats bar, notifications
 ├── lib/
 │   ├── db/                 Drizzle schema, seed data, migrations
 │   ├── classify.ts         Two-step LLM classification engine
+│   ├── composition.ts      Tier calculation, cycle detection, validation
+│   ├── types.ts            Shared domain types
 │   ├── providers.ts        Multi-provider model factory
 │   ├── shared.ts           Categories, provider configs, shared types
 │   ├── watcher.ts          File system watcher (chokidar)
@@ -148,6 +166,7 @@ See [automation/SETUP.md](automation/SETUP.md) for details.
 | Intelligence layer | Done | Two-step LLM classification, multi-provider, verdicts |
 | Dashboard overhaul | Done | Stats bar, bento grid, gap analysis, Cmd+K search, timeline |
 | Automation bundle | Done | n8n + Docker for social monitoring pipeline |
+| Skills Lab | Done | Skill composition, focus graph, LLM generation, hierarchical sidebar |
 | Desktop packaging | Planned | Tauri wrapper for native distribution |
 | Confidence tuning | Planned | Self-improving classification accuracy over time |
 
