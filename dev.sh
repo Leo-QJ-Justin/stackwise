@@ -2,8 +2,7 @@
 # StackWise — unified dev startup script
 # Usage: ./dev.sh [command]
 #   ./dev.sh          — install deps + start app
-#   ./dev.sh setup    — full first-time setup (deps + db + seed)
-#   ./dev.sh start    — start app only
+#   ./dev.sh start    — start app only (deps already installed)
 #   ./dev.sh auto     — start app + n8n automation stack
 #   ./dev.sh test     — run all test suites (requires app running)
 #   ./dev.sh stop     — stop automation containers
@@ -54,27 +53,6 @@ cmd_deps() {
     npm install
   fi
   ok "Dependencies installed"
-}
-
-cmd_db() {
-  info "Setting up database..."
-  if [ -f db/stack.db ]; then
-    ok "Database already exists at db/stack.db"
-  else
-    mkdir -p db
-    npx drizzle-kit push 2>/dev/null
-    ok "Database schema created"
-  fi
-}
-
-cmd_seed() {
-  if [ -f lib/db/seed.ts ]; then
-    info "Seeding starter tools..."
-    npx tsx lib/db/seed.ts
-    ok "Database seeded"
-  else
-    warn "No seed script found — skipping"
-  fi
 }
 
 cmd_start() {
@@ -149,13 +127,6 @@ ensure_node
 ensure_bun
 
 case "$CMD" in
-  setup)
-    cmd_deps
-    cmd_db
-    cmd_seed
-    echo ""
-    ok "Setup complete! Run ./dev.sh start to launch."
-    ;;
   start)
     cmd_start
     ;;

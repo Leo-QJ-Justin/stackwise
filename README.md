@@ -84,27 +84,19 @@ The registry acts as a cache. As it grows, fewer LLM calls are needed — classi
 ## Quick Start
 
 ```bash
-# Clone and install
 git clone https://github.com/Leo-QJ-Justin/stackwise.git
 cd stackwise
 bun install
-
-# Set up the database
-npx drizzle-kit push
-npx tsx lib/db/seed.ts
-
-# Start
 bun run dev
 ```
 
-Open `http://localhost:3000`. Go to **Settings** to configure your LLM provider — local options (Claude CLI, Ollama) need no API key.
+Open `http://localhost:3000`. The database is created automatically on first run, and your installed Claude Code plugins are detected on startup. Go to **Settings** to configure your LLM provider for AI-powered classification — local options (Claude CLI, Ollama) need no API key.
 
 Or use the dev script:
 
 ```bash
-./dev.sh setup   # Install deps + init DB
-./dev.sh start   # Start dev server
-./dev.sh auto    # Setup + start in one command
+./dev.sh          # Install deps + start
+./dev.sh start    # Start only (deps already installed)
 ```
 
 ## Tech Stack

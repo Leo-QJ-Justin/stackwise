@@ -205,7 +205,7 @@ export function startWatcher() {
   } else {
     const pluginWatcher = chokidar.watch(pluginsJsonPath, {
       persistent: true,
-      ignoreInitial: true, // Scan handles initial classification — watcher only reacts to new installs
+      ignoreInitial: false, // Read existing plugins on startup so new users get their tools auto-detected
     });
 
     const safePluginsHandler = (p: string) => {
