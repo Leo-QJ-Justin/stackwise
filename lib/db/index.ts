@@ -110,6 +110,20 @@ for (const ddl of newColumns) {
   }
 }
 
+// Fix: re-activate child capabilities (skills, commands, mcp_servers) that were
+// incorrectly archived by the watcher's uninstall detection before the fix.
+sqlite.exec(`
+  UPDATE tools_registry
+  SET status = 'active', last_updated = CURRENT_TIMESTAMP
+  WHERE status = 'archived'
+    AND capability_type IN ('skill', 'command', 'mcp_server')
+    AND parent_plugin_id IS NOT NULL
+    AND parent_plugin_id IN (
+      SELECT id FROM tools_registry WHERE status = 'active' AND capability_type = 'plugin'
+    )
+    AND skill_path IS NOT NULL
+`);
+
 // Seed default settings if empty (first run)
 const hasSettings = sqlite.prepare("SELECT COUNT(*) as count FROM settings").get() as { count: number };
 if (hasSettings.count === 0) {
