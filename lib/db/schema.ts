@@ -23,6 +23,9 @@ export const toolsRegistry = sqliteTable("tools_registry", {
   parentPluginId: integer("parent_plugin_id"),
   skillPath: text("skill_path"),
   frontmatter: text("frontmatter"),
+  mergeType: text("merge_type"),
+  tier: integer("tier").notNull().default(0),
+  generationPrompt: text("generation_prompt"),
 });
 
 export const stackItems = sqliteTable("stack_items", {
@@ -67,6 +70,20 @@ export const settings = sqliteTable("settings", {
   value: text("value"),
 });
 
+export const skillCompositions = sqliteTable("skill_compositions", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  compositeSkillId: integer("composite_skill_id")
+    .notNull()
+    .references(() => toolsRegistry.id),
+  baseSkillId: integer("base_skill_id")
+    .notNull()
+    .references(() => toolsRegistry.id),
+  position: integer("position").notNull(),
+  addedAt: text("added_at")
+    .notNull()
+    .default(sql`(CURRENT_TIMESTAMP)`),
+});
+
 export const swapHistory = sqliteTable("swap_history", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   oldToolId: integer("old_tool_id").references(() => toolsRegistry.id),
@@ -81,6 +98,8 @@ export type InsertTool = typeof toolsRegistry.$inferInsert;
 export type SelectTool = typeof toolsRegistry.$inferSelect;
 export type InsertStackItem = typeof stackItems.$inferInsert;
 export type SelectStackItem = typeof stackItems.$inferSelect;
+export type InsertComposition = typeof skillCompositions.$inferInsert;
+export type SelectComposition = typeof skillCompositions.$inferSelect;
 export type InsertSwap = typeof swapHistory.$inferInsert;
 export type InsertIngestedContent = typeof ingestedContent.$inferInsert;
 export type SelectIngestedContent = typeof ingestedContent.$inferSelect;

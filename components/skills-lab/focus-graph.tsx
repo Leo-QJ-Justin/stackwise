@@ -1,0 +1,209 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { AlertTriangle, Link as LinkIcon, Merge } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+
+interface GraphNode {
+  id: number;
+  name: string;
+  tier: number;
+  mergeType: string | null;
+  position?: number;
+  status?: string;
+}
+
+interface GraphData {
+  skill: GraphNode & {
+    description: string | null;
+    skillPath: string | null;
+    generationPrompt: string | null;
+    capabilityType: string;
+    source: string;
+  };
+  dependsOn: GraphNode[];
+  usedBy: GraphNode[];
+}
+
+const TIER_NODE_COLORS: Record<number, { bg: string; border: string; text: string }> = {
+  0: { bg: "bg-blue-500/10", border: "border-blue-500/30", text: "text-blue-400" },
+  1: { bg: "bg-violet-500/10", border: "border-violet-500/30", text: "text-violet-400" },
+  2: { bg: "bg-amber-500/10", border: "border-amber-500/30", text: "text-amber-400" },
+};
+
+function nodeColors(tier: number) {
+  return TIER_NODE_COLORS[Math.min(tier, 2)] ?? TIER_NODE_COLORS[2];
+}
+
+interface Props {
+  skillId: number;
+  onNavigate: (id: number) => void;
+  refreshKey: number;
+}
+
+export function FocusGraph({ skillId, onNavigate, refreshKey }: Props) {
+  const [data, setData] = useState<GraphData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch(`/api/skills/${skillId}/graph`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((d) => { setData(d); setLoading(false); })
+      .catch(() => { setData(null); setLoading(false); });
+  }, [skillId, refreshKey]);
+
+  if (loading) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <div className="size-6 rounded-full border-2 border-muted-foreground/30 border-t-primary animate-spin" />
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <p className="font-mono text-sm text-muted-foreground">Failed to load graph data</p>
+      </div>
+    );
+  }
+
+  const { skill, dependsOn, usedBy } = data;
+  const centerColors = nodeColors(skill.tier);
+
+  return (
+    <ScrollArea className="flex-1">
+      <div className="flex flex-col items-center gap-6 p-8">
+        {/* DEPENDS ON section */}
+        {dependsOn.length > 0 && (
+          <div className="flex flex-col items-center gap-3">
+            <span className="font-mono text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50">
+              Depends On
+            </span>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              {dependsOn.map((node) => {
+                const colors = nodeColors(node.tier);
+                const isBroken = node.status !== "active";
+                return (
+                  <button
+                    key={node.id}
+                    onClick={() => onNavigate(node.id)}
+                    className={`cursor-pointer group relative flex flex-col items-center gap-1 rounded-lg border px-4 py-3 transition-all duration-200 hover:scale-[1.02] hover:shadow-md ${colors.bg} ${colors.border} ${isBroken ? "opacity-50" : ""}`}
+                  >
+                    {/* Position badge */}
+                    <span className="absolute -top-2 -left-2 flex size-5 items-center justify-center rounded-full bg-muted border border-border font-mono text-[9px] font-bold text-foreground">
+                      {node.position}
+                    </span>
+                    {isBroken && (
+                      <AlertTriangle className="absolute -top-2 -right-2 size-4 text-amber-500" />
+                    )}
+                    <span className={`font-mono text-[11px] font-medium ${colors.text} group-hover:text-foreground transition-colors`}>
+                      {node.name}
+                    </span>
+                    <span className="font-mono text-[9px] text-muted-foreground/50">
+                      Tier {node.tier}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Connecting lines */}
+            <div className="flex items-center gap-1">
+              {dependsOn.map((_, i) => (
+                <div key={i} className="h-6 w-px bg-border" />
+              ))}
+            </div>
+            <div className="h-4 w-px bg-border" />
+          </div>
+        )}
+
+        {/* CENTER NODE */}
+        <div className={`relative flex flex-col items-center gap-2 rounded-xl border-2 px-8 py-5 shadow-lg ${centerColors.bg} ${centerColors.border}`}>
+          <div className="flex items-center gap-2">
+            <span className={`font-mono text-base font-bold ${centerColors.text}`}>
+              {skill.name}
+            </span>
+            {skill.mergeType && (
+              <Badge variant="outline" className={`text-[9px] font-mono gap-0.5 ${
+                skill.mergeType === "orchestrator"
+                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/25"
+                  : "bg-rose-500/10 text-rose-400 border-rose-500/25"
+              }`}>
+                {skill.mergeType === "orchestrator" ? (
+                  <><LinkIcon className="size-2" /> ORCH</>
+                ) : (
+                  <><Merge className="size-2" /> MUT</>
+                )}
+              </Badge>
+            )}
+          </div>
+          <span className="font-mono text-[10px] text-muted-foreground/60">
+            Tier {skill.tier} · {skill.capabilityType} · {skill.source}
+          </span>
+          {skill.description && (
+            <p className="max-w-sm text-center text-xs text-muted-foreground mt-1">
+              {skill.description}
+            </p>
+          )}
+        </div>
+
+        {/* USED BY section */}
+        {usedBy.length > 0 && (
+          <div className="flex flex-col items-center gap-3">
+            <div className="h-4 w-px bg-border" />
+            <div className="flex items-center gap-1">
+              {usedBy.map((_, i) => (
+                <div key={i} className="h-6 w-px bg-border" />
+              ))}
+            </div>
+
+            <span className="font-mono text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50">
+              Used By
+            </span>
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              {usedBy.map((node) => {
+                const colors = nodeColors(node.tier);
+                return (
+                  <button
+                    key={node.id}
+                    onClick={() => onNavigate(node.id)}
+                    className={`cursor-pointer group flex flex-col items-center gap-1 rounded-lg border px-4 py-3 transition-all duration-200 hover:scale-[1.02] hover:shadow-md ${colors.bg} ${colors.border}`}
+                  >
+                    <span className={`font-mono text-[11px] font-medium ${colors.text} group-hover:text-foreground transition-colors`}>
+                      {node.name}
+                    </span>
+                    <span className="font-mono text-[9px] text-muted-foreground/50">
+                      Tier {node.tier}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* No dependencies and no dependents */}
+        {dependsOn.length === 0 && usedBy.length === 0 && (
+          <p className="mt-4 font-mono text-xs text-muted-foreground/50">
+            Base skill — no dependencies or dependents
+          </p>
+        )}
+
+        {/* Generation prompt */}
+        {skill.generationPrompt && (
+          <div className="mt-6 w-full max-w-lg rounded-lg border border-border bg-muted/30 p-4">
+            <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/50">
+              Generation Intent
+            </span>
+            <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+              {skill.generationPrompt}
+            </p>
+          </div>
+        )}
+      </div>
+    </ScrollArea>
+  );
+}

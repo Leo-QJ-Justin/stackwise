@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Button, buttonVariants } from "@/components/ui/button";
-import { RefreshCw, Download, Settings, History } from "lucide-react";
+import { RefreshCw, Download, Settings, History, Sparkles } from "lucide-react";
 import { SearchModal } from "@/components/search-modal";
 
 interface TopBarProps {
@@ -106,8 +106,15 @@ export function TopBar({ onScanComplete }: TopBarProps) {
       <header className="flex items-center justify-between border-b border-border px-6 py-3">
         <div className="flex items-center gap-4">
           <h1 className="font-mono text-base font-bold tracking-tight text-primary">
-            StackWise
+            <Link href="/" className="hover:opacity-80 transition-opacity">StackWise</Link>
           </h1>
+          <Link
+            href="/skills"
+            className={buttonVariants({ variant: "ghost", size: "sm" })}
+          >
+            <Sparkles className="size-3.5" />
+            Skills Lab
+          </Link>
         </div>
 
         <div className="flex items-center gap-1.5">
