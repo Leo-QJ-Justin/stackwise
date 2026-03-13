@@ -61,17 +61,27 @@ export function ComposeDrawer({
     Promise.all(
       selectedBaseIds.map((id) =>
         fetch(`/api/skills/${id}/graph`)
-          .then((r) => r.ok ? r.json() : null)
-          .then((data) => data ? {
+          .then((r) => {
+            if (!r.ok) throw new Error(`Failed to load skill #${id}`);
+            return r.json();
+          })
+          .then((data) => ({
             id: data.skill.id,
             name: data.skill.name,
             tier: data.skill.tier,
             description: data.skill.description,
-          } as SkillInfo : null)
-          .catch(() => null)
+          } as SkillInfo))
+          .catch((err) => {
+            console.error("[ComposeDrawer] Failed to load base skill:", err);
+            return null;
+          })
       )
     ).then((results) => {
-      setBaseSkills(results.filter((r): r is SkillInfo => r !== null));
+      const loaded = results.filter((r): r is SkillInfo => r !== null);
+      setBaseSkills(loaded);
+      if (loaded.length < selectedBaseIds.length) {
+        setError(`${selectedBaseIds.length - loaded.length} base skill(s) failed to load`);
+      }
     });
   }, [selectedBaseIds]);
 
@@ -79,15 +89,19 @@ export function ComposeDrawer({
   useEffect(() => {
     if (extendingSkillId) {
       fetch(`/api/skills/${extendingSkillId}/graph`)
-        .then((r) => r.ok ? r.json() : null)
-        .then((data) => {
-          if (data) {
-            setName(data.skill.name);
-            setMergeType((data.skill.mergeType as "orchestrator" | "mutation") ?? "orchestrator");
-            setIntent(data.skill.generationPrompt ?? "");
-          }
+        .then((r) => {
+          if (!r.ok) throw new Error(`Failed to load skill #${extendingSkillId}`);
+          return r.json();
         })
-        .catch(() => {});
+        .then((data) => {
+          setName(data.skill.name);
+          setMergeType((data.skill.mergeType as "orchestrator" | "mutation") ?? "orchestrator");
+          setIntent(data.skill.generationPrompt ?? "");
+        })
+        .catch((err) => {
+          console.error("[ComposeDrawer] Failed to pre-populate extend data:", err);
+          setError("Failed to load skill data for extending");
+        });
     }
   }, [extendingSkillId]);
 

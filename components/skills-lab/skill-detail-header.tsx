@@ -3,22 +3,7 @@
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Link as LinkIcon, Merge, GitBranch } from "lucide-react";
-
-interface GraphData {
-  skill: {
-    id: number;
-    name: string;
-    tier: number;
-    mergeType: string | null;
-    description: string | null;
-    skillPath: string | null;
-    generationPrompt: string | null;
-    capabilityType: string;
-    source: string;
-  };
-  dependsOn: { id: number; name: string; position: number }[];
-  usedBy: { id: number; name: string }[];
-}
+import type { GraphData } from "@/lib/types";
 
 const TIER_COLORS: Record<number, string> = {
   0: "bg-blue-500/15 text-blue-400 border-blue-500/25",
@@ -38,18 +23,31 @@ interface Props {
 
 export function SkillDetailHeader({ skillId, onExtend, refreshKey }: Props) {
   const [data, setData] = useState<GraphData | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    setError(null);
     fetch(`/api/skills/${skillId}/graph`)
-      .then((r) => r.ok ? r.json() : null)
+      .then((r) => {
+        if (!r.ok) throw new Error(`Server error: ${r.status}`);
+        return r.json();
+      })
       .then(setData)
-      .catch(() => setData(null));
+      .catch((err) => {
+        console.error("[SkillDetailHeader] Failed:", err);
+        setData(null);
+        setError(err instanceof Error ? err.message : "Failed to load");
+      });
   }, [skillId, refreshKey]);
 
   if (!data) {
     return (
       <div className="flex items-center gap-4 border-b border-border px-6 py-4">
-        <div className="h-5 w-32 rounded bg-muted animate-pulse" />
+        {error ? (
+          <span className="font-mono text-xs text-red-400">{error}</span>
+        ) : (
+          <div className="h-5 w-32 rounded bg-muted animate-pulse" />
+        )}
       </div>
     );
   }

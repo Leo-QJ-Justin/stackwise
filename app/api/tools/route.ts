@@ -23,7 +23,10 @@ export async function GET(request: NextRequest) {
       conditions.push(eq(toolsRegistry.capabilityType, capabilityType));
     }
     if (parentPluginId) {
-      conditions.push(eq(toolsRegistry.parentPluginId, parseInt(parentPluginId, 10)));
+      const parsed = parseInt(parentPluginId, 10);
+      if (!isNaN(parsed)) {
+        conditions.push(eq(toolsRegistry.parentPluginId, parsed));
+      }
     }
 
     const tools =

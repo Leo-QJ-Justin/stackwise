@@ -7,21 +7,6 @@ import { FocusGraph } from "@/components/skills-lab/focus-graph";
 import { ComposeDrawer } from "@/components/skills-lab/compose-drawer";
 import { SkillDetailHeader } from "@/components/skills-lab/skill-detail-header";
 
-export interface SkillListItem {
-  id: number;
-  name: string;
-  tier: number;
-  mergeType: string | null;
-  capabilityType: string;
-  source: string;
-  status: string;
-  description: string | null;
-  skillPath: string | null;
-  generationPrompt: string | null;
-  baseSkills: { id: number; name: string; position: number }[];
-  usedByCount: number;
-}
-
 export default function SkillsPage() {
   const [selectedSkillId, setSelectedSkillId] = useState<number | null>(null);
   const [composeMode, setComposeMode] = useState(false);

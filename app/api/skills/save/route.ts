@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { toolsRegistry, skillCompositions } from "@/lib/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { validateComposition, computeTier, cascadeTiers } from "@/lib/composition";
+import { isValidMergeType, isIntegerArray } from "@/lib/types";
 import fs from "fs";
 import path from "path";
 import os from "os";
@@ -16,7 +17,7 @@ export async function POST(request: NextRequest) {
       name: string;
       content: string;
       baseSkillIds: number[];
-      mergeType: "orchestrator" | "mutation";
+      mergeType: string;
       intent: string;
       skillPath: string;
     };
@@ -25,22 +26,40 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    // Resolve ~ to home directory for filesystem operations
-    const fsPath = skillPath.replace(/^~/, os.homedir());
+    if (!isValidMergeType(mergeType)) {
+      return NextResponse.json({ error: "mergeType must be 'orchestrator' or 'mutation'" }, { status: 400 });
+    }
 
-    // Path safety: must be under home directory
+    if (!isIntegerArray(baseSkillIds)) {
+      return NextResponse.json({ error: "baseSkillIds must be an array of integers" }, { status: 400 });
+    }
+
+    if (new Set(baseSkillIds).size !== baseSkillIds.length) {
+      return NextResponse.json({ error: "Duplicate base skills are not allowed" }, { status: 400 });
+    }
+
+    // Resolve ~ to home directory and canonicalize for path safety
     const home = os.homedir();
-    if (!fsPath.startsWith(home)) {
+    const fsPath = path.resolve(skillPath.replace(/^~/, home));
+    if (!fsPath.startsWith(home + path.sep) && fsPath !== home) {
       return NextResponse.json({ error: "Skill path must be under your home directory" }, { status: 400 });
     }
 
-    // Validate
+    // Validate composition (cycles, tier depth, minimum bases)
     const validationError = validateComposition(id, baseSkillIds);
     if (validationError) {
       return NextResponse.json({ error: validationError }, { status: 400 });
     }
 
     const tier = computeTier(baseSkillIds);
+
+    // Verify skill exists when updating
+    if (id) {
+      const existing = db.select({ id: toolsRegistry.id }).from(toolsRegistry).where(eq(toolsRegistry.id, id)).get();
+      if (!existing) {
+        return NextResponse.json({ error: "Skill not found" }, { status: 404 });
+      }
+    }
 
     // Read old content for rollback (extend case)
     let oldContent: string | null = null;
@@ -137,10 +156,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ...saved, baseSkills });
     } catch (dbError) {
       // Rollback filesystem on DB failure
-      if (id && oldContent !== null) {
-        fs.writeFileSync(fsPath, oldContent, "utf-8");
-      } else if (!id && fs.existsSync(fsPath)) {
-        fs.unlinkSync(fsPath);
+      try {
+        if (id && oldContent !== null) {
+          fs.writeFileSync(fsPath, oldContent, "utf-8");
+        } else if (!id && fs.existsSync(fsPath)) {
+          fs.unlinkSync(fsPath);
+        }
+      } catch (rollbackErr) {
+        console.error("[skills/save] Filesystem rollback also failed:", rollbackErr);
+        console.error("[skills/save] Original DB error was:", dbError);
       }
       throw dbError;
     }
