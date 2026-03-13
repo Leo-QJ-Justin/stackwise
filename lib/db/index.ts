@@ -75,6 +75,15 @@ sqlite.exec(`
     FOREIGN KEY (old_tool_id) REFERENCES tools_registry(id),
     FOREIGN KEY (new_tool_id) REFERENCES tools_registry(id)
   );
+  CREATE TABLE IF NOT EXISTS skill_compositions (
+    id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+    composite_skill_id integer NOT NULL,
+    base_skill_id integer NOT NULL,
+    position integer NOT NULL,
+    added_at text NOT NULL DEFAULT (CURRENT_TIMESTAMP),
+    FOREIGN KEY (composite_skill_id) REFERENCES tools_registry(id),
+    FOREIGN KEY (base_skill_id) REFERENCES tools_registry(id)
+  );
 `);
 
 // Migrate existing databases: add new columns for skill discovery
@@ -83,6 +92,9 @@ const newColumns = [
   "ALTER TABLE tools_registry ADD COLUMN parent_plugin_id integer",
   "ALTER TABLE tools_registry ADD COLUMN skill_path text",
   "ALTER TABLE tools_registry ADD COLUMN frontmatter text",
+  "ALTER TABLE tools_registry ADD COLUMN merge_type text",
+  "ALTER TABLE tools_registry ADD COLUMN tier integer NOT NULL DEFAULT 0",
+  "ALTER TABLE tools_registry ADD COLUMN generation_prompt text",
 ];
 for (const ddl of newColumns) {
   try { sqlite.exec(ddl); } catch { /* column already exists */ }
