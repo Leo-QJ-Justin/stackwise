@@ -110,4 +110,16 @@ for (const ddl of newColumns) {
   }
 }
 
+// Seed default settings if empty (first run)
+const hasSettings = sqlite.prepare("SELECT COUNT(*) as count FROM settings").get() as { count: number };
+if (hasSettings.count === 0) {
+  sqlite.exec(`
+    INSERT INTO settings (key, value) VALUES
+      ('provider', 'openrouter'),
+      ('api_key', ''),
+      ('model', 'anthropic/claude-sonnet-4'),
+      ('search_model', 'perplexity/sonar');
+  `);
+}
+
 export const db = drizzle(sqlite, { schema });
