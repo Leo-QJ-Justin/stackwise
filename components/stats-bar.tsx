@@ -18,6 +18,10 @@ interface StatsData {
   categoryCoverage: Record<string, number>;
   missingCategories: string[];
   lastScanTime: string | null;
+  pluginCount?: number;
+  skillCount?: number;
+  mcpCount?: number;
+  commandCount?: number;
 }
 
 function relativeTime(iso: string): string {
@@ -103,6 +107,35 @@ export function StatsBar({ refreshKey = 0 }: { refreshKey?: number }) {
                 active
               </span>
             </div>
+
+            {/* Granular capability breakdown */}
+            {(stats.skillCount ?? 0) > 0 && (
+              <div className="flex items-center gap-1.5 transition-all duration-200">
+                <span className="font-mono text-[10px] text-muted-foreground/60">
+                  {stats.pluginCount ?? 0} plugins
+                </span>
+                <span className="text-muted-foreground/30">·</span>
+                <span className="font-mono text-[10px] text-muted-foreground/60">
+                  {stats.skillCount ?? 0} skills
+                </span>
+                {(stats.mcpCount ?? 0) > 0 && (
+                  <>
+                    <span className="text-muted-foreground/30">·</span>
+                    <span className="font-mono text-[10px] text-muted-foreground/60">
+                      {stats.mcpCount} MCP
+                    </span>
+                  </>
+                )}
+                {(stats.commandCount ?? 0) > 0 && (
+                  <>
+                    <span className="text-muted-foreground/30">·</span>
+                    <span className="font-mono text-[10px] text-muted-foreground/60">
+                      {stats.commandCount} cmds
+                    </span>
+                  </>
+                )}
+              </div>
+            )}
 
             {/* Pending review */}
             <div className="flex items-center gap-2 transition-all duration-200">

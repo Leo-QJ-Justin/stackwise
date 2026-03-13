@@ -19,6 +19,10 @@ export const toolsRegistry = sqliteTable("tools_registry", {
     .default(sql`(CURRENT_TIMESTAMP)`),
   canonicalUrl: text("canonical_url"),
   replacesToolId: integer("replaces_tool_id"),
+  capabilityType: text("capability_type").notNull().default("plugin"),
+  parentPluginId: integer("parent_plugin_id"),
+  skillPath: text("skill_path"),
+  frontmatter: text("frontmatter"),
 });
 
 export const stackItems = sqliteTable("stack_items", {

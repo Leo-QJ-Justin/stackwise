@@ -62,6 +62,31 @@ export async function GET() {
 
     const lastScanTime = lastUpdateRow?.lastUpdated ?? null;
 
+    // Granular capability counts
+    const pluginCount = db
+      .select({ count: sql<number>`count(*)` })
+      .from(toolsRegistry)
+      .where(sql`${toolsRegistry.capabilityType} = 'plugin' AND ${toolsRegistry.status} = 'active'`)
+      .get()?.count ?? 0;
+
+    const skillCount = db
+      .select({ count: sql<number>`count(*)` })
+      .from(toolsRegistry)
+      .where(sql`${toolsRegistry.capabilityType} = 'skill' AND ${toolsRegistry.status} = 'active'`)
+      .get()?.count ?? 0;
+
+    const mcpCount = db
+      .select({ count: sql<number>`count(*)` })
+      .from(toolsRegistry)
+      .where(sql`${toolsRegistry.capabilityType} = 'mcp_server' AND ${toolsRegistry.status} = 'active'`)
+      .get()?.count ?? 0;
+
+    const commandCount = db
+      .select({ count: sql<number>`count(*)` })
+      .from(toolsRegistry)
+      .where(sql`${toolsRegistry.capabilityType} = 'command' AND ${toolsRegistry.status} = 'active'`)
+      .get()?.count ?? 0;
+
     return NextResponse.json({
       activeTools,
       pendingReview,
@@ -70,6 +95,10 @@ export async function GET() {
       categoryCoverage,
       missingCategories,
       lastScanTime,
+      pluginCount,
+      skillCount,
+      mcpCount,
+      commandCount,
     });
   } catch (error) {
     console.error("[stats] Failed to compute stats:", error);
