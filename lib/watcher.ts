@@ -38,7 +38,7 @@ function formatName(raw: string): string {
  */
 function ensureTool(
   name: string,
-  opts: { status: string; source: string; category: string }
+  opts: { status: string; source: string; category: string; pluginKey?: string }
 ) {
   const existing = db
     .select()
@@ -54,6 +54,7 @@ function ensureTool(
       status: opts.status,
       source: opts.source,
       category: opts.category,
+      pluginKey: opts.pluginKey ?? null,
     })
     .returning()
     .all();
@@ -106,6 +107,11 @@ async function handlePluginsChange(filePath: string) {
             readmeContent: readme ?? undefined,
             forceActive: true,
           });
+          // Backfill pluginKey after classification
+          db.update(toolsRegistry)
+            .set({ pluginKey: key })
+            .where(sql`lower(replace(${toolsRegistry.name}, '-', ' ')) = lower(replace(${name}, '-', ' ')) AND ${toolsRegistry.pluginKey} IS NULL`)
+            .run();
           console.log(`[watcher] classified and added: "${name}"`);
         } catch (err) {
           console.error(`[watcher] classification failed for "${name}":`, err);
@@ -114,6 +120,7 @@ async function handlePluginsChange(filePath: string) {
             status: "active",
             source: "installed",
             category: inferCategory(name),
+            pluginKey: key,
           });
         }
       } else {
@@ -122,6 +129,7 @@ async function handlePluginsChange(filePath: string) {
           status: "active",
           source: "installed",
           category: "Unclassified",
+          pluginKey: key,
         });
       }
     }

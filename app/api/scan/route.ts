@@ -343,6 +343,11 @@ export async function POST() {
                     .from(toolsRegistry)
                     .where(sql`lower(replace(${toolsRegistry.name}, '-', ' ')) = lower(replace(${name}, '-', ' '))`)
                     .get();
+                  // Backfill pluginKey after classification
+                  db.update(toolsRegistry)
+                    .set({ pluginKey: key })
+                    .where(sql`lower(replace(${toolsRegistry.name}, '-', ' ')) = lower(replace(${name}, '-', ' ')) AND ${toolsRegistry.pluginKey} IS NULL`)
+                    .run();
                   classifiedCount++;
                   send({ type: "classified", name });
                 } catch (err) {
@@ -353,6 +358,7 @@ export async function POST() {
                     source: "community",
                     category: inferCategory(name),
                     capabilityType: "plugin",
+                    pluginKey: key,
                   }).returning().all();
                   db.insert(stackItems).values({ toolId: tool.id }).run();
                   existing = tool;
@@ -364,6 +370,13 @@ export async function POST() {
                 if (existing.capabilityType !== "plugin") {
                   db.update(toolsRegistry)
                     .set({ capabilityType: "plugin" })
+                    .where(eq(toolsRegistry.id, existing.id))
+                    .run();
+                }
+                // Backfill pluginKey for existing plugins that don't have one yet
+                if (!existing.pluginKey) {
+                  db.update(toolsRegistry)
+                    .set({ pluginKey: key })
                     .where(eq(toolsRegistry.id, existing.id))
                     .run();
                 }

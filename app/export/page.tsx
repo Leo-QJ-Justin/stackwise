@@ -5,8 +5,6 @@ import { SnapshotPreview } from "@/components/snapshot-preview";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import { parseProvides } from "@/lib/classify";
-import { CATEGORIES } from "@/lib/shared";
 
 export default async function ExportPage() {
   const rows = await db
@@ -15,37 +13,54 @@ export default async function ExportPage() {
       category: toolsRegistry.category,
       provides: toolsRegistry.provides,
       description: toolsRegistry.description,
+      pluginKey: toolsRegistry.pluginKey,
+      source: toolsRegistry.source,
+      capabilityType: toolsRegistry.capabilityType,
     })
     .from(stackItems)
     .innerJoin(toolsRegistry, eq(stackItems.toolId, toolsRegistry.id))
     .all();
 
-  const categories = CATEGORIES;
+  // Separate tools into three groups
+  const installablePlugins: typeof rows = [];
+  const manualSetup: typeof rows = [];
+  const selfCreated: typeof rows = [];
 
-  const grouped: Record<string, typeof rows> = {};
-  for (const cat of categories) {
-    grouped[cat] = [];
-  }
   for (const row of rows) {
-    const cat = categories.includes(row.category) ? row.category : "misc";
-    grouped[cat].push(row);
+    if (row.source === "self_created") {
+      selfCreated.push(row);
+    } else if (row.pluginKey) {
+      installablePlugins.push(row);
+    } else {
+      manualSetup.push(row);
+    }
   }
 
   const today = new Date().toISOString().split("T")[0];
 
   let markdown = `# My Claude Stack\n\n_Exported on ${today}_\n`;
 
-  for (const cat of categories) {
-    const items = grouped[cat];
-    if (items.length === 0) continue;
-    markdown += `\n## ${cat}\n\n`;
-    for (const item of items) {
-      const parsed = parseProvides(item.provides);
-      const providesLabel = parsed.length > 0
-        ? ` (${parsed.slice(0, 2).join(", ")})`
-        : "";
+  if (installablePlugins.length > 0) {
+    markdown += `\n## Install Commands\n\n\`\`\`bash\n`;
+    for (const item of installablePlugins) {
+      markdown += `claude plugin install ${item.pluginKey}\n`;
+    }
+    markdown += `\`\`\`\n`;
+  }
+
+  if (manualSetup.length > 0) {
+    markdown += `\n## MCP Servers (manual setup)\n\n`;
+    for (const item of manualSetup) {
       const desc = item.description ? ` — ${item.description}` : "";
-      markdown += `- **${item.name}**${providesLabel}${desc}\n`;
+      markdown += `- ${item.name}${desc}\n`;
+    }
+  }
+
+  if (selfCreated.length > 0) {
+    markdown += `\n## Self-Created Skills\n\n`;
+    for (const item of selfCreated) {
+      const desc = item.description ? ` — ${item.description}` : "";
+      markdown += `- ${item.name}${desc}\n`;
     }
   }
 

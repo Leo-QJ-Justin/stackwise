@@ -19,6 +19,7 @@ export const toolsRegistry = sqliteTable("tools_registry", {
     .default(sql`(CURRENT_TIMESTAMP)`),
   canonicalUrl: text("canonical_url"),
   replacesToolId: integer("replaces_tool_id"),
+  pluginKey: text("plugin_key"),
   capabilityType: text("capability_type").notNull().default("plugin"),
   parentPluginId: integer("parent_plugin_id"),
   skillPath: text("skill_path"),

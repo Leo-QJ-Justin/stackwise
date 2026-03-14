@@ -11,7 +11,6 @@ import {
   ChevronDown,
   Trash2,
   Sparkles,
-  Save,
   Loader2,
   Link as LinkIcon,
   Merge,
@@ -35,7 +34,7 @@ interface Props {
   onReorderBases: (ids: number[]) => void;
 }
 
-type DrawerState = "idle" | "generating" | "preview" | "saving";
+type DrawerState = "idle" | "generating" | "preview";
 
 export function ComposeDrawer({
   selectedBaseIds,
@@ -48,7 +47,6 @@ export function ComposeDrawer({
   const [name, setName] = useState("");
   const [mergeType, setMergeType] = useState<"orchestrator" | "mutation">("orchestrator");
   const [intent, setIntent] = useState("");
-  const [skillDir, setSkillDir] = useState("~/.claude/skills");
   const [generatedContent, setGeneratedContent] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -136,7 +134,7 @@ export function ComposeDrawer({
 
       const body = extendingSkillId
         ? { baseSkillIds: selectedBaseIds, intent }
-        : { name, baseSkillIds: selectedBaseIds, mergeType, intent, skillDir };
+        : { name, baseSkillIds: selectedBaseIds, mergeType, intent };
 
       const res = await fetch(endpoint, {
         method: "POST",
@@ -154,41 +152,6 @@ export function ComposeDrawer({
     } catch (err) {
       setError(err instanceof Error ? err.message : "Generation failed");
       setState("idle");
-    }
-  };
-
-  const handleSave = async () => {
-    setState("saving");
-    setError(null);
-
-    try {
-      const filename = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + ".md";
-      // ~ is resolved server-side in the save route
-      const skillPath = `${skillDir}/${filename}`;
-
-      const res = await fetch("/api/skills/save", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id: extendingSkillId,
-          name,
-          content: generatedContent,
-          baseSkillIds: selectedBaseIds,
-          mergeType,
-          intent,
-          skillPath,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error ?? "Save failed");
-      }
-
-      onSaved();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Save failed");
-      setState("preview");
     }
   };
 
@@ -314,18 +277,6 @@ export function ComposeDrawer({
             />
           </div>
 
-          {/* Skill directory */}
-          <div>
-            <label className="font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
-              Save Directory
-            </label>
-            <Input
-              value={skillDir}
-              onChange={(e) => setSkillDir(e.target.value)}
-              className="mt-1.5 h-8 font-mono text-xs"
-            />
-          </div>
-
           {/* Generate button */}
           {state === "idle" && (
             <Button
@@ -346,7 +297,7 @@ export function ComposeDrawer({
           )}
 
           {/* Preview / Editor */}
-          {(state === "preview" || state === "saving") && (
+          {state === "preview" && (
             <>
               <div>
                 <label className="font-mono text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/60">
@@ -359,43 +310,48 @@ export function ComposeDrawer({
                 />
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-2">
+                <Button
+                  onClick={async () => {
+                    navigator.clipboard.writeText(generatedContent);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                    try {
+                      await fetch("/api/skills/save", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          id: extendingSkillId,
+                          name,
+                          content: generatedContent,
+                          baseSkillIds: selectedBaseIds,
+                          mergeType,
+                          intent,
+                        }),
+                      });
+                      onSaved();
+                    } catch (err) {
+                      console.error("[ComposeDrawer] DB save failed:", err);
+                    }
+                  }}
+                  className="cursor-pointer w-full gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground"
+                  disabled={!generatedContent}
+                >
+                  {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+                  {copied ? "Copied! Paste into Claude Code" : "Copy to Clipboard"}
+                </Button>
                 <Button
                   onClick={handleGenerate}
                   variant="outline"
                   size="sm"
-                  className="cursor-pointer flex-1 gap-1.5"
-                  disabled={state === "saving"}
+                  className="cursor-pointer w-full gap-1.5"
                 >
                   <Sparkles className="size-3" />
                   Regenerate
                 </Button>
-                <Button
-                  onClick={() => {
-                    navigator.clipboard.writeText(generatedContent);
-                    setCopied(true);
-                    setTimeout(() => setCopied(false), 2000);
-                  }}
-                  variant="outline"
-                  size="sm"
-                  className="cursor-pointer gap-1.5"
-                  disabled={!generatedContent}
-                >
-                  {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
-                  {copied ? "Copied" : "Copy"}
-                </Button>
-                <Button
-                  onClick={handleSave}
-                  size="sm"
-                  className="cursor-pointer flex-1 gap-1.5 bg-primary hover:bg-primary/90"
-                  disabled={state === "saving"}
-                >
-                  {state === "saving" ? (
-                    <><Loader2 className="size-3 animate-spin" /> Saving...</>
-                  ) : (
-                    <><Save className="size-3" /> Save Skill</>
-                  )}
-                </Button>
+                <p className="text-center font-mono text-[10px] text-muted-foreground/50">
+                  Register in Claude Code after copying
+                </p>
               </div>
             </>
           )}
