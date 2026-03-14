@@ -13,6 +13,7 @@ import {
   GripVertical,
   List,
   LayoutGrid,
+  Undo2,
 } from "lucide-react";
 import {
   DndContext,
@@ -257,10 +258,12 @@ function DraggableToolRow({
   item,
   onRemove,
   onUpdateNotes,
+  isPending,
 }: {
   item: StackItem;
   onRemove: (toolId: number) => void;
   onUpdateNotes: (toolId: number, notes: string) => void;
+  isPending?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `tool-${item.tool.id}`,
@@ -293,10 +296,10 @@ function DraggableToolRow({
   return (
     <div
       ref={setNodeRef}
-      className={`group/tool px-4 py-1.5 ${isDragging ? "opacity-30" : ""}`}
+      className={`group/tool px-4 py-1.5 ${isDragging ? "opacity-30" : ""} ${isPending ? "opacity-40" : ""}`}
     >
       <div
-        className={`rounded-lg border border-border/60 border-l-[3px] ${borderColor} bg-card/50 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[0_2px_6px_rgba(0,0,0,0.08)]`}
+        className={`rounded-lg border ${isPending ? "border-dashed border-border/40" : "border-border/60"} border-l-[3px] ${borderColor} bg-card/50 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-shadow hover:shadow-[0_2px_6px_rgba(0,0,0,0.08)]`}
       >
         <div className="flex items-center gap-1 px-3 py-2">
           <button
@@ -345,11 +348,15 @@ function DraggableToolRow({
           <Button
             size="xs"
             variant="ghost"
-            className="cursor-pointer text-muted-foreground opacity-0 group-hover/tool:opacity-100 transition-opacity shrink-0"
+            className={`cursor-pointer shrink-0 transition-opacity ${
+              isPending
+                ? "opacity-100 text-amber-500 hover:text-amber-400"
+                : "text-muted-foreground opacity-0 group-hover/tool:opacity-100"
+            }`}
             onClick={() => onRemove(item.tool.id)}
-            title="Remove from stack"
+            title={isPending ? "Undo removal" : "Mark for removal"}
           >
-            <X className="size-3" />
+            {isPending ? <Undo2 className="size-3" /> : <X className="size-3" />}
           </Button>
         </div>
 
@@ -409,6 +416,14 @@ function DraggableToolRow({
             </button>
           )}
         </div>
+
+        {isPending && (
+          <div className="px-3 pb-1.5 pl-9">
+            <p className="font-mono text-[10px] text-amber-500/60">
+              Uninstall via Claude Code to remove
+            </p>
+          </div>
+        )}
 
         {/* Expanded plugin skills panel */}
         {isPlugin && skillsExpanded && pluginChildren.length > 0 && (
@@ -488,6 +503,23 @@ export function StackDashboard({ refreshKey = 0 }: { refreshKey?: number }) {
   );
   const [activeDrag, setActiveDrag] = useState<ToolData | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [pendingRemovals, setPendingRemovals] = useState<Set<number>>(new Set());
+
+  // Load pending removals from localStorage
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("stackwise:pendingRemovals");
+      if (stored) setPendingRemovals(new Set(JSON.parse(stored)));
+    } catch { /* ignore */ }
+  }, []);
+
+  // Save pending removals to localStorage
+  useEffect(() => {
+    localStorage.setItem(
+      "stackwise:pendingRemovals",
+      JSON.stringify([...pendingRemovals])
+    );
+  }, [pendingRemovals]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
@@ -500,8 +532,19 @@ export function StackDashboard({ refreshKey = 0 }: { refreshKey?: number }) {
         fetch("/api/tools?status=queue"),
         fetch("/api/tools?status=evaluated_rejected"),
       ]);
-      if (stackRes.ok) setStackItems(await stackRes.json());
-      else console.error("[dashboard] Failed to load stack:", stackRes.status);
+      if (stackRes.ok) {
+        const items = await stackRes.json();
+        setStackItems(items);
+        // Clear pending removals for tools no longer in stack (watcher archived them)
+        setPendingRemovals((prev) => {
+          const currentToolIds = new Set(items.map((i: StackItem) => i.toolId));
+          const next = new Set<number>();
+          for (const id of prev) {
+            if (currentToolIds.has(id)) next.add(id);
+          }
+          return next.size !== prev.size ? next : prev;
+        });
+      } else console.error("[dashboard] Failed to load stack:", stackRes.status);
       if (suggestedRes.ok) setSuggested(await suggestedRes.json());
       else console.error("[dashboard] Failed to load suggestions:", suggestedRes.status);
       if (evaluatedRes.ok) setEvaluated(await evaluatedRes.json());
@@ -566,18 +609,16 @@ export function StackDashboard({ refreshKey = 0 }: { refreshKey?: number }) {
     loadData();
   };
 
-  const handleRemove = async (toolId: number) => {
-    try {
-      const res = await fetch("/api/stack", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ toolId }),
-      });
-      if (!res.ok) console.error("[dashboard] Remove failed:", res.status);
-    } catch (err) {
-      console.error("[dashboard] Remove request failed:", err);
-    }
-    loadData();
+  const handleRemove = (toolId: number) => {
+    setPendingRemovals((prev) => {
+      const next = new Set(prev);
+      if (next.has(toolId)) {
+        next.delete(toolId); // undo
+      } else {
+        next.add(toolId);
+      }
+      return next;
+    });
   };
 
   const handleUpdateNotes = async (toolId: number, notes: string) => {
@@ -762,6 +803,7 @@ export function StackDashboard({ refreshKey = 0 }: { refreshKey?: number }) {
                   onAccept={handleAccept}
                   onSwap={handleSwap}
                   onSkip={handleSkip}
+                  pendingRemovals={pendingRemovals}
                 />
               );
             })}
@@ -894,6 +936,7 @@ function CategorySection({
   onAccept,
   onSwap,
   onSkip,
+  pendingRemovals,
 }: {
   cat: string;
   catStack: StackItem[];
@@ -909,6 +952,7 @@ function CategorySection({
   onAccept: (id: number) => void;
   onSwap: (oldToolId: number, newToolId: number) => void;
   onSkip: (id: number) => void;
+  pendingRemovals: Set<number>;
 }) {
   const { isOver, setNodeRef } = useDroppable({ id: `category-${cat}` });
 
@@ -969,7 +1013,7 @@ function CategorySection({
                 className="grid grid-cols-2 min-h-[44px]"
               >
                 {/* Left: stack tool (draggable) */}
-                <DraggableToolRow item={item} onRemove={onRemove} onUpdateNotes={onUpdateNotes} />
+                <DraggableToolRow item={item} onRemove={onRemove} onUpdateNotes={onUpdateNotes} isPending={pendingRemovals.has(item.tool.id)} />
 
                 {/* Right: replacement suggestion(s) aligned to this tool */}
                 <div className="border-l border-border px-4 py-1">
