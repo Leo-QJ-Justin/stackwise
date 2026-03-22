@@ -97,6 +97,7 @@ const newColumns = [
   "ALTER TABLE tools_registry ADD COLUMN merge_type text",
   "ALTER TABLE tools_registry ADD COLUMN tier integer NOT NULL DEFAULT 0",
   "ALTER TABLE tools_registry ADD COLUMN generation_prompt text",
+  "ALTER TABLE tools_registry ADD COLUMN plugin_key text",
 ];
 for (const ddl of newColumns) {
   try {
